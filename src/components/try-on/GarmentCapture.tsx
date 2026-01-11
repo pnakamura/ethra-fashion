@@ -180,11 +180,11 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
         <TabsContent value="url" className="mt-0">
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Cole o link de uma imagem de produto
+              Cole a URL do produto ou da imagem direta
             </p>
             <div className="flex gap-2">
               <Input
-                placeholder="https://..."
+                placeholder="https://loja.com/produto ou URL da imagem"
                 value={sourceUrl}
                 onChange={(e) => setSourceUrl(e.target.value)}
                 className="flex-1"
@@ -201,6 +201,9 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
                 )}
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground/70">
+              Funciona com páginas de produto (Amazon, Shein, Zara...) ou URLs de imagem
+            </p>
           </div>
         </TabsContent>
       </Tabs>
@@ -224,7 +227,9 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
                 <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
                   <div className="text-center">
                     <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
-                    <p className="text-sm text-muted-foreground">Extraindo peça...</p>
+                    <p className="text-sm text-muted-foreground">
+                      {activeTab === 'url' ? 'Analisando e extraindo peça...' : 'Extraindo peça...'}
+                    </p>
                   </div>
                 </div>
               )}

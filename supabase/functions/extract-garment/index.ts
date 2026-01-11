@@ -53,26 +53,72 @@ serve(async (req) => {
       console.log("Fetching external URL server-side:", externalUrl);
       
       try {
-        const imageResponse = await fetch(externalUrl, {
+        const initialResponse = await fetch(externalUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'image/*,*/*;q=0.8',
+            'Accept': 'text/html,image/*,*/*;q=0.8',
           },
         });
 
-        if (!imageResponse.ok) {
-          throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
+        if (!initialResponse.ok) {
+          throw new Error(`Falha ao acessar URL: ${initialResponse.status}`);
         }
 
-        const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+        let contentType = initialResponse.headers.get('content-type') || '';
+        let imageData: Uint8Array;
+        let imageContentType = 'image/jpeg';
         
-        // Check if it's actually an image
-        if (!contentType.startsWith('image/')) {
-          throw new Error('URL does not point to a valid image');
+        // Check if it's an HTML page (product page)
+        if (contentType.includes('text/html')) {
+          console.log("URL is an HTML page, extracting product image...");
+          
+          const htmlContent = await initialResponse.text();
+          const extractedImageUrl = extractImageFromHtml(htmlContent, externalUrl);
+          
+          if (!extractedImageUrl) {
+            throw new Error(
+              'Não foi possível encontrar uma imagem de produto nesta página. ' +
+              'Tente usar a URL direta da imagem ou fazer upload de um screenshot.'
+            );
+          }
+          
+          console.log("Extracted image URL from HTML:", extractedImageUrl);
+          
+          // Fetch the actual image
+          const imageResponse = await fetch(extractedImageUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'image/*,*/*;q=0.8',
+              'Referer': externalUrl,
+            },
+          });
+          
+          if (!imageResponse.ok) {
+            throw new Error('Não foi possível baixar a imagem do produto');
+          }
+          
+          imageContentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+          
+          if (!imageContentType.startsWith('image/')) {
+            throw new Error('A URL extraída não aponta para uma imagem válida');
+          }
+          
+          const arrayBuffer = await imageResponse.arrayBuffer();
+          imageData = new Uint8Array(arrayBuffer);
+          
+        } else if (contentType.startsWith('image/')) {
+          // Direct image URL
+          console.log("URL is a direct image");
+          imageContentType = contentType;
+          const arrayBuffer = await initialResponse.arrayBuffer();
+          imageData = new Uint8Array(arrayBuffer);
+          
+        } else {
+          throw new Error(
+            'Esta URL não contém uma imagem ou página de produto reconhecível. ' +
+            'Tente copiar a URL direta da imagem ou fazer upload de um screenshot.'
+          );
         }
-
-        const imageArrayBuffer = await imageResponse.arrayBuffer();
-        const imageUint8Array = new Uint8Array(imageArrayBuffer);
         
         // Determine file extension from content type
         const extMap: Record<string, string> = {
@@ -82,7 +128,7 @@ serve(async (req) => {
           'image/webp': 'webp',
           'image/gif': 'gif',
         };
-        const ext = extMap[contentType] || 'jpg';
+        const ext = extMap[imageContentType.split(';')[0]] || 'jpg';
         
         const fileName = `${user.id}/external_${Date.now()}.${ext}`;
         
@@ -90,14 +136,14 @@ serve(async (req) => {
         
         const { error: uploadError } = await supabase.storage
           .from('external-garments')
-          .upload(fileName, imageUint8Array, {
-            contentType,
+          .upload(fileName, imageData, {
+            contentType: imageContentType,
             upsert: false,
           });
 
         if (uploadError) {
           console.error("Storage upload error:", uploadError);
-          throw new Error(`Failed to upload image: ${uploadError.message}`);
+          throw new Error(`Falha ao salvar imagem: ${uploadError.message}`);
         }
 
         const { data: { publicUrl } } = supabase.storage
@@ -108,11 +154,11 @@ serve(async (req) => {
         console.log("Image uploaded, public URL:", finalImageUrl);
         
       } catch (fetchError) {
-        console.error("Error fetching external URL:", fetchError);
+        console.error("Error processing external URL:", fetchError);
         throw new Error(
           fetchError instanceof Error 
-            ? `Não foi possível acessar esta URL: ${fetchError.message}`
-            : 'Não foi possível acessar esta URL'
+            ? fetchError.message
+            : 'Não foi possível processar esta URL'
         );
       }
     }
@@ -200,4 +246,94 @@ serve(async (req) => {
 
 function detectCategory(sourceType: string): string {
   return "upper_body";
+}
+
+/**
+ * Extract product image URL from HTML page using meta tags and common patterns
+ */
+function extractImageFromHtml(html: string, baseUrl: string): string | null {
+  // 1. Try og:image (Open Graph - standard for e-commerce)
+  const ogImageMatch = html.match(/<meta\s+(?:property|name)=["']og:image["']\s+content=["']([^"']+)["']/i) 
+    || html.match(/<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']og:image["']/i);
+  if (ogImageMatch && ogImageMatch[1]) {
+    return resolveUrl(ogImageMatch[1], baseUrl);
+  }
+  
+  // 2. Try twitter:image
+  const twitterImageMatch = html.match(/<meta\s+(?:property|name)=["']twitter:image["']\s+content=["']([^"']+)["']/i)
+    || html.match(/<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']twitter:image["']/i);
+  if (twitterImageMatch && twitterImageMatch[1]) {
+    return resolveUrl(twitterImageMatch[1], baseUrl);
+  }
+  
+  // 3. Try product:image (used by some e-commerce platforms)
+  const productImageMatch = html.match(/<meta\s+(?:property|name)=["']product:image["']\s+content=["']([^"']+)["']/i)
+    || html.match(/<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']product:image["']/i);
+  if (productImageMatch && productImageMatch[1]) {
+    return resolveUrl(productImageMatch[1], baseUrl);
+  }
+  
+  // 4. Look for common product image patterns in img tags
+  const productPatterns = [
+    /class=["'][^"']*product[^"']*image[^"']*["'][^>]*src=["']([^"']+)["']/i,
+    /class=["'][^"']*main[^"']*image[^"']*["'][^>]*src=["']([^"']+)["']/i,
+    /id=["'][^"']*product[^"']*["'][^>]*src=["']([^"']+)["']/i,
+    /data-zoom-image=["']([^"']+)["']/i,
+    /data-large-image=["']([^"']+)["']/i,
+  ];
+  
+  for (const pattern of productPatterns) {
+    const match = html.match(pattern);
+    if (match && match[1]) {
+      return resolveUrl(match[1], baseUrl);
+    }
+  }
+  
+  // 5. Find large images (likely product images have specific dimensions or keywords)
+  const imgMatches = [...html.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi)];
+  for (const match of imgMatches) {
+    const imgTag = match[0];
+    const src = match[1];
+    
+    // Skip small images, icons, logos
+    if (src.includes('icon') || src.includes('logo') || src.includes('sprite') || 
+        src.includes('avatar') || src.includes('thumb') || src.includes('1x1')) {
+      continue;
+    }
+    
+    // Prioritize images with product-related keywords
+    if (src.includes('product') || src.includes('main') || src.includes('large') || 
+        src.includes('zoom') || src.includes('detail') || src.includes('hero')) {
+      return resolveUrl(src, baseUrl);
+    }
+    
+    // Check for large dimensions in attributes
+    const widthMatch = imgTag.match(/width=["']?(\d+)/i);
+    const heightMatch = imgTag.match(/height=["']?(\d+)/i);
+    if (widthMatch && parseInt(widthMatch[1]) >= 300) {
+      return resolveUrl(src, baseUrl);
+    }
+    if (heightMatch && parseInt(heightMatch[1]) >= 300) {
+      return resolveUrl(src, baseUrl);
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Resolve relative URLs to absolute URLs
+ */
+function resolveUrl(url: string, baseUrl: string): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  if (url.startsWith('//')) {
+    return 'https:' + url;
+  }
+  try {
+    return new URL(url, baseUrl).href;
+  } catch {
+    return url;
+  }
 }
