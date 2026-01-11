@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGarmentExtraction } from '@/hooks/useGarmentExtraction';
+import { toast } from 'sonner';
 
 interface GarmentCaptureProps {
   onGarmentSelected: (garment: {
@@ -23,7 +24,17 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
   const [sourceUrl, setSourceUrl] = useState('');
   const [activeTab, setActiveTab] = useState('camera');
   
-  const { extractGarmentAsync, isExtracting, externalGarments } = useGarmentExtraction();
+  const { extractGarmentAsync, extractFromUrlAsync, isExtracting, externalGarments } = useGarmentExtraction();
+
+  // Validate URL format
+  const isValidUrl = (url: string): boolean => {
+    try {
+      const parsed = new URL(url);
+      return ['http:', 'https:'].includes(parsed.protocol);
+    } catch {
+      return false;
+    }
+  };
 
   const handleFileSelect = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -50,26 +61,25 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
       });
     } catch (error) {
       console.error('Error extracting garment:', error);
+      setPreviewUrl(null);
     }
   };
 
   const handleUrlSubmit = async () => {
     if (!sourceUrl) return;
 
+    // Validate URL format
+    if (!isValidUrl(sourceUrl)) {
+      toast.error('Por favor, insira uma URL válida (começando com http:// ou https://)');
+      return;
+    }
+
+    // Show loading state with URL as temporary preview
+    setPreviewUrl(sourceUrl);
+
     try {
-      // Fetch the image from URL
-      const response = await fetch(sourceUrl);
-      const blob = await response.blob();
-      const file = new File([blob], 'garment.jpg', { type: blob.type });
-
-      const url = URL.createObjectURL(blob);
-      setPreviewUrl(url);
-
-      const garment = await extractGarmentAsync({
-        file,
-        sourceType: 'url',
-        sourceUrl,
-      });
+      // Use server-side fetch via Edge Function (bypasses CORS)
+      const garment = await extractFromUrlAsync({ url: sourceUrl });
 
       onGarmentSelected({
         imageUrl: garment.original_image_url,
@@ -78,7 +88,8 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
         id: garment.id,
       });
     } catch (error) {
-      console.error('Error fetching garment from URL:', error);
+      console.error('Error extracting garment from URL:', error);
+      setPreviewUrl(null);
     }
   };
 

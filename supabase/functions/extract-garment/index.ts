@@ -37,17 +37,89 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { imageUrl, sourceType } = body;
+    const { imageUrl, externalUrl, sourceType, sourceUrl } = body;
 
     console.log("Extract garment request:", {
       userId: user.id,
       sourceType,
       hasImage: !!imageUrl,
+      hasExternalUrl: !!externalUrl,
     });
 
-    if (!imageUrl) {
+    let finalImageUrl = imageUrl;
+
+    // If externalUrl is provided, fetch it server-side (bypasses CORS)
+    if (externalUrl) {
+      console.log("Fetching external URL server-side:", externalUrl);
+      
+      try {
+        const imageResponse = await fetch(externalUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'image/*,*/*;q=0.8',
+          },
+        });
+
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
+        }
+
+        const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+        
+        // Check if it's actually an image
+        if (!contentType.startsWith('image/')) {
+          throw new Error('URL does not point to a valid image');
+        }
+
+        const imageArrayBuffer = await imageResponse.arrayBuffer();
+        const imageUint8Array = new Uint8Array(imageArrayBuffer);
+        
+        // Determine file extension from content type
+        const extMap: Record<string, string> = {
+          'image/jpeg': 'jpg',
+          'image/jpg': 'jpg',
+          'image/png': 'png',
+          'image/webp': 'webp',
+          'image/gif': 'gif',
+        };
+        const ext = extMap[contentType] || 'jpg';
+        
+        const fileName = `${user.id}/external_${Date.now()}.${ext}`;
+        
+        console.log("Uploading fetched image to storage:", fileName);
+        
+        const { error: uploadError } = await supabase.storage
+          .from('external-garments')
+          .upload(fileName, imageUint8Array, {
+            contentType,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error("Storage upload error:", uploadError);
+          throw new Error(`Failed to upload image: ${uploadError.message}`);
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('external-garments')
+          .getPublicUrl(fileName);
+
+        finalImageUrl = publicUrl;
+        console.log("Image uploaded, public URL:", finalImageUrl);
+        
+      } catch (fetchError) {
+        console.error("Error fetching external URL:", fetchError);
+        throw new Error(
+          fetchError instanceof Error 
+            ? `Não foi possível acessar esta URL: ${fetchError.message}`
+            : 'Não foi possível acessar esta URL'
+        );
+      }
+    }
+
+    if (!finalImageUrl) {
       return new Response(
-        JSON.stringify({ error: "Image URL is required" }),
+        JSON.stringify({ error: "Image URL or external URL is required" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
@@ -63,7 +135,7 @@ serve(async (req) => {
       "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
       {
         input: {
-          image: imageUrl,
+          image: finalImageUrl,
         },
       }
     );
@@ -80,10 +152,11 @@ serve(async (req) => {
       .from("external_garments")
       .insert({
         user_id: user.id,
-        source_type: sourceType || "camera_scan",
-        original_image_url: imageUrl,
+        source_type: sourceType || "url",
+        original_image_url: finalImageUrl,
         processed_image_url: processedImageUrl,
         detected_category: detectedCategory,
+        source_url: sourceUrl || externalUrl || null,
       })
       .select()
       .single();
@@ -93,13 +166,20 @@ serve(async (req) => {
       throw new Error("Failed to save extracted garment");
     }
 
+    // Return full garment object for consistency
     return new Response(
       JSON.stringify({
         success: true,
         garment: {
           id: garment.id,
-          processedImageUrl,
-          detectedCategory,
+          user_id: garment.user_id,
+          source_type: garment.source_type,
+          original_image_url: garment.original_image_url,
+          processed_image_url: processedImageUrl,
+          detected_category: detectedCategory,
+          source_url: garment.source_url,
+          name: garment.name,
+          created_at: garment.created_at,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

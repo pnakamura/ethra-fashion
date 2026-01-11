@@ -88,6 +88,42 @@ export function useGarmentExtraction() {
     },
   });
 
+  // Extract garment from external URL (server-side fetch, no CORS)
+  const extractFromUrlMutation = useMutation({
+    mutationFn: async ({ url }: { url: string }) => {
+      if (!user) throw new Error('Not authenticated');
+
+      // Call the extraction edge function with externalUrl
+      // The edge function will fetch the image server-side (bypassing CORS)
+      const response = await supabase.functions.invoke('extract-garment', {
+        body: {
+          externalUrl: url,
+          sourceType: 'url',
+          sourceUrl: url,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Falha ao processar URL');
+      }
+
+      return response.data.garment as ExternalGarment;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['external-garments'] });
+      toast.success('Peça extraída com sucesso!');
+    },
+    onError: (error) => {
+      console.error('Error extracting garment from URL:', error);
+      const message = error instanceof Error ? error.message : 'Erro ao extrair peça';
+      toast.error(message);
+    },
+  });
+
   // Delete external garment
   const deleteGarmentMutation = useMutation({
     mutationFn: async (garmentId: string) => {
@@ -111,7 +147,9 @@ export function useGarmentExtraction() {
     isLoading,
     extractGarment: extractGarmentMutation.mutate,
     extractGarmentAsync: extractGarmentMutation.mutateAsync,
-    isExtracting: extractGarmentMutation.isPending,
+    isExtracting: extractGarmentMutation.isPending || extractFromUrlMutation.isPending,
+    extractFromUrl: extractFromUrlMutation.mutate,
+    extractFromUrlAsync: extractFromUrlMutation.mutateAsync,
     deleteGarment: deleteGarmentMutation.mutate,
   };
 }
