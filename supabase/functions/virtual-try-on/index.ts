@@ -116,7 +116,7 @@ serve(async (req) => {
       console.log(`CatVTON-FLUX attempt ${attempt}, seed=${seed}`);
       
       return await replicate.run(
-        "mmezhov/catvton-flux:2e0c727f61b53ca11c35e63f7e8cd1e6bb54d41f7c2eaae30fcb5cc68e7833e7",
+        "mmezhov/catvton-flux",
         {
           input: {
             image: avatarImageUrl,      // Person image
