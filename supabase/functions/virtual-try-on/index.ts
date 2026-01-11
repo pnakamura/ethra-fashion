@@ -109,7 +109,23 @@ serve(async (req) => {
     ]);
 
     // Helper to wait between retries (for rate limiting)
-    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const getRetryAfterSeconds = (errorMsg: string): number | null => {
+      // Replicate often returns: { ..., "retry_after": 8 }
+      const match = errorMsg.match(/"retry_after"\s*:\s*(\d+)/i);
+      if (!match) return null;
+      const seconds = Number(match[1]);
+      return Number.isFinite(seconds) ? seconds : null;
+    };
+
+    const sleepForRateLimit = async (errorMsg: string, fallbackSeconds = 8) => {
+      const retryAfter = getRetryAfterSeconds(errorMsg) ?? fallbackSeconds;
+      // add a small buffer so we don't re-hit the burst limit
+      const waitMs = Math.max(1, retryAfter + 1) * 1000;
+      console.log(`Rate limited, waiting ${waitMs}ms before retry...`);
+      await sleep(waitMs);
+    };
 
     // Primary model: CatVTON-FLUX (more robust, faster)
     const callCatVTON = async (attempt: number, seed: number = 42) => {
@@ -162,8 +178,7 @@ serve(async (req) => {
         
         // Check for rate limiting - wait and retry
         if (firstErrorMsg.includes("429") || firstErrorMsg.includes("Too Many Requests") || firstErrorMsg.includes("throttled")) {
-          console.log("Rate limited, waiting 5 seconds before retry...");
-          await sleep(5000);
+          await sleepForRateLimit(firstErrorMsg);
           try {
             output = await callCatVTON(2, 123);
           } catch (retryError) {
@@ -263,12 +278,17 @@ serve(async (req) => {
       
       // Provide user-friendly error messages
       let userMessage = "Falha ao processar prova virtual.";
+      const isRateLimit = errorMsg.includes("429") || errorMsg.includes("Too Many Requests") || errorMsg.includes("throttled");
+      const retryAfterSeconds = isRateLimit ? (getRetryAfterSeconds(errorMsg) ?? 8) : null;
+
       if (errorMsg.includes("list index out of range") || errorMsg.includes("Failed to process")) {
         userMessage = "Não foi possível processar a imagem. Use uma foto de corpo inteiro com boa iluminação e fundo simples.";
       } else if (errorMsg.includes("Payment Required") || errorMsg.includes("402")) {
         userMessage = "Créditos insuficientes no serviço de IA. Tente novamente em alguns minutos.";
-      } else if (errorMsg.includes("429") || errorMsg.includes("Too Many Requests") || errorMsg.includes("throttled")) {
-        userMessage = "Limite de requisições atingido. Aguarde alguns segundos e tente novamente.";
+      } else if (isRateLimit) {
+        userMessage = retryAfterSeconds
+          ? `Limite de requisições atingido. Aguarde ~${retryAfterSeconds}s e tente novamente.`
+          : "Limite de requisições atingido. Aguarde alguns segundos e tente novamente.";
       } else if (errorMsg.includes("imagem")) {
         userMessage = errorMsg; // Already a user-friendly message from validation
       }
@@ -286,8 +306,15 @@ serve(async (req) => {
       }
       
       return new Response(
-        JSON.stringify({ success: false, error: userMessage }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        JSON.stringify({
+          success: false,
+          error: userMessage,
+          retryAfterSeconds,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: isRateLimit ? 429 : 400,
+        }
       );
     }
   } catch (error) {

@@ -210,18 +210,39 @@ export function useVirtualTryOn() {
         },
       });
 
-      if (response.error) {
-        // Update status to failed
-        await supabase
-          .from('try_on_results')
-          .update({ 
-            status: 'failed', 
-            error_message: response.error.message 
-          })
-          .eq('id', tryOnResult.id);
-        
-        throw new Error(response.error.message);
-      }
+       if (response.error) {
+         const rawMessage = response.error.message || 'Falha ao processar prova virtual.';
+
+         // Try to extract {"error":"...","retryAfterSeconds":N} from edge-function message
+         let userMessage = rawMessage;
+         let retryAfterSeconds: number | null = null;
+         try {
+           const jsonStart = rawMessage.indexOf('{');
+           if (jsonStart !== -1) {
+             const maybeJson = rawMessage.slice(jsonStart);
+             const parsed = JSON.parse(maybeJson);
+             if (parsed?.error) userMessage = String(parsed.error);
+             if (typeof parsed?.retryAfterSeconds === 'number') retryAfterSeconds = parsed.retryAfterSeconds;
+           }
+         } catch {
+           // ignore parse errors
+         }
+
+         if (retryAfterSeconds) {
+           userMessage = `${userMessage}`;
+         }
+
+         // Update status to failed with a clean message
+         await supabase
+           .from('try_on_results')
+           .update({
+             status: 'failed',
+             error_message: userMessage,
+           })
+           .eq('id', tryOnResult.id);
+
+         throw new Error(userMessage);
+       }
 
       return {
         ...tryOnResult,
@@ -235,11 +256,11 @@ export function useVirtualTryOn() {
       queryClient.invalidateQueries({ queryKey: ['try-on-history'] });
       toast.success('Prova virtual concluída!');
     },
-    onError: (error) => {
-      setIsProcessing(false);
-      console.error('Virtual try-on error:', error);
-      toast.error('Erro na prova virtual. Tente novamente.');
-    },
+     onError: (error) => {
+       setIsProcessing(false);
+       console.error('Virtual try-on error:', error);
+       toast.error(error instanceof Error ? error.message : 'Erro na prova virtual. Tente novamente.');
+     },
   });
 
   return {
