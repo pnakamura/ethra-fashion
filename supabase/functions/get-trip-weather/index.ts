@@ -47,35 +47,45 @@ interface WeatherRecommendations {
 async function geocodeDestination(destination: string): Promise<{ lat: number; lon: number; name: string } | null> {
   console.log(`Geocoding destination: ${destination}`);
   
-  try {
-    const response = await fetch(
-      `${OPEN_METEO_GEOCODING}?name=${encodeURIComponent(destination)}&count=1&language=pt&format=json`
-    );
-    
-    if (!response.ok) {
-      console.error("Geocoding failed:", response.status);
-      return null;
+  // Try different search strategies
+  const searchTerms = [
+    destination,
+    destination.split(',')[0].trim(), // Just the city name
+    destination.replace(/,/g, ' ').trim(), // Replace commas with spaces
+  ];
+  
+  for (const term of searchTerms) {
+    try {
+      console.log(`Trying geocoding with: ${term}`);
+      
+      const response = await fetch(
+        `${OPEN_METEO_GEOCODING}?name=${encodeURIComponent(term)}&count=5&language=pt&format=json`
+      );
+      
+      if (!response.ok) {
+        console.error("Geocoding failed:", response.status);
+        continue;
+      }
+      
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        const result = data.results[0];
+        console.log(`Geocoded to: ${result.name}, ${result.country} (${result.latitude}, ${result.longitude})`);
+        
+        return {
+          lat: result.latitude,
+          lon: result.longitude,
+          name: `${result.name}, ${result.country}`,
+        };
+      }
+    } catch (error) {
+      console.error("Geocoding error for term:", term, error);
     }
-    
-    const data = await response.json();
-    
-    if (!data.results || data.results.length === 0) {
-      console.log("No geocoding results found");
-      return null;
-    }
-    
-    const result = data.results[0];
-    console.log(`Geocoded to: ${result.name}, ${result.country} (${result.latitude}, ${result.longitude})`);
-    
-    return {
-      lat: result.latitude,
-      lon: result.longitude,
-      name: `${result.name}, ${result.country}`,
-    };
-  } catch (error) {
-    console.error("Geocoding error:", error);
-    return null;
   }
+  
+  console.log("No geocoding results found for any search term");
+  return null;
 }
 
 async function getWeatherData(
