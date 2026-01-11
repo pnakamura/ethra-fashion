@@ -38,7 +38,11 @@ export default function Voyager() {
       <Header title="Voyager" />
       <PageContainer className="px-4 py-6">
         <div className="max-w-lg mx-auto">
-          <TripPlanner wardrobeItems={items} onCreateTrip={(trip) => createTrip.mutate(trip)} />
+          <TripPlanner 
+            wardrobeItems={items} 
+            onCreateTrip={(trip) => createTrip.mutate(trip)} 
+            userId={user?.id}
+          />
         </div>
       </PageContainer>
       <BottomNav />
