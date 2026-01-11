@@ -128,6 +128,9 @@ serve(async (req) => {
       );
     };
 
+    // Helper to wait between retries (for rate limiting)
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
     try {
       let output: unknown;
       let usedFallback = false;
@@ -139,9 +142,16 @@ serve(async (req) => {
         const firstErrorMsg = firstError instanceof Error ? firstError.message : String(firstError);
         console.log("First attempt failed:", firstErrorMsg);
         
+        // Check for rate limiting - if so, wait and retry same config
+        if (firstErrorMsg.includes("429") || firstErrorMsg.includes("Too Many Requests") || firstErrorMsg.includes("throttled")) {
+          console.log("Rate limited, waiting 5 seconds before retry...");
+          await sleep(5000);
+          output = await callModel(true, true, 1.5);
+        }
         // If "list index out of range", try fallback with auto_crop=false
-        if (firstErrorMsg.includes("list index out of range")) {
-          console.log("Trying fallback with auto_crop=false...");
+        else if (firstErrorMsg.includes("list index out of range")) {
+          console.log("Trying fallback with auto_crop=false (waiting 5s for rate limit)...");
+          await sleep(5000); // Wait to avoid rate limit on fallback
           try {
             output = await callModel(false, true, 2);
             usedFallback = true;
@@ -149,9 +159,17 @@ serve(async (req) => {
             const secondErrorMsg = secondError instanceof Error ? secondError.message : String(secondError);
             console.log("Second attempt failed:", secondErrorMsg);
             
+            // Check for rate limiting again
+            if (secondErrorMsg.includes("429") || secondErrorMsg.includes("Too Many Requests") || secondErrorMsg.includes("throttled")) {
+              console.log("Rate limited on fallback, waiting 5 seconds...");
+              await sleep(5000);
+              output = await callModel(false, true, 2.5);
+              usedFallback = true;
+            }
             // Try one more time with both disabled
-            if (secondErrorMsg.includes("list index out of range")) {
-              console.log("Trying last fallback with auto_crop=false, auto_mask=false...");
+            else if (secondErrorMsg.includes("list index out of range")) {
+              console.log("Trying last fallback with auto_crop=false, auto_mask=false (waiting 5s)...");
+              await sleep(5000);
               output = await callModel(false, false, 3);
               usedFallback = true;
             } else {
@@ -205,6 +223,8 @@ serve(async (req) => {
         userMessage = "Não foi possível detectar uma pessoa na imagem do avatar. Use uma foto de corpo inteiro com boa iluminação, braços levemente afastados do corpo.";
       } else if (errorMsg.includes("Payment Required") || errorMsg.includes("402")) {
         userMessage = "Créditos insuficientes no serviço de IA. Tente novamente em alguns minutos.";
+      } else if (errorMsg.includes("429") || errorMsg.includes("Too Many Requests") || errorMsg.includes("throttled")) {
+        userMessage = "Limite de requisições atingido. Aguarde alguns segundos e tente novamente.";
       } else if (errorMsg.includes("imagem")) {
         userMessage = errorMsg; // Already a user-friendly message from validation
       }
