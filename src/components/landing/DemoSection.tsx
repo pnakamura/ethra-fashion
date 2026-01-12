@@ -1,10 +1,43 @@
 import { motion } from 'framer-motion';
-import { Sparkles, Camera, ShoppingBag } from 'lucide-react';
+import { Sparkles, Camera, ShoppingBag, Palette } from 'lucide-react';
+import { ChromaticDemo } from './ChromaticDemo';
 
 export function DemoSection() {
   return (
     <section className="py-24 px-6">
       <div className="max-w-6xl mx-auto">
+        {/* Chromatic Demo Section */}
+        <motion.div
+          className="mb-24"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+        >
+          <div className="text-center mb-12">
+            <motion.div
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4"
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+            >
+              <Palette className="w-4 h-4" />
+              Experimente grátis
+            </motion.div>
+            
+            <h2 className="font-display text-4xl md:text-5xl font-semibold mb-4">
+              Qual é a sua
+              <br />
+              <span className="text-gradient">paleta perfeita?</span>
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Nossa IA analisa seu tom de pele e olhos para revelar as cores que mais te valorizam
+            </p>
+          </div>
+
+          <ChromaticDemo />
+        </motion.div>
+
+        {/* Virtual Try-On Demo */}
         <motion.div
           className="text-center mb-16"
           initial={{ opacity: 0, y: 20 }}

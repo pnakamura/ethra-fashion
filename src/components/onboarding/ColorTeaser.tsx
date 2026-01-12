@@ -1,10 +1,14 @@
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Palette, Sun, Leaf, Snowflake, Flower2 } from 'lucide-react';
+import { Palette, Sun, Leaf, Snowflake, Flower2, ArrowRight } from 'lucide-react';
+import { ColorAnalysis } from '@/components/chromatic/ColorAnalysis';
+import { useColorAnalysis, type ColorAnalysisResult } from '@/hooks/useColorAnalysis';
 
 interface ColorTeaserProps {
   onDoLater: () => void;
   onDoNow: () => void;
+  onComplete?: (result: ColorAnalysisResult) => void;
 }
 
 const seasons = [
@@ -14,7 +18,104 @@ const seasons = [
   { id: 'winter', label: 'Inverno', icon: Snowflake, color: 'from-blue-500 to-purple-500' },
 ];
 
-export function ColorTeaser({ onDoLater, onDoNow }: ColorTeaserProps) {
+export function ColorTeaser({ onDoLater, onDoNow, onComplete }: ColorTeaserProps) {
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [savedResult, setSavedResult] = useState<ColorAnalysisResult | null>(null);
+  const { saveToProfile } = useColorAnalysis();
+
+  const handleDoNow = () => {
+    setShowAnalysis(true);
+  };
+
+  const handleAnalysisComplete = (result: ColorAnalysisResult) => {
+    setSavedResult(result);
+    setAnalysisComplete(true);
+    if (onComplete) {
+      onComplete(result);
+    }
+  };
+
+  const handleSave = async (result: ColorAnalysisResult) => {
+    const success = await saveToProfile(result);
+    if (success) {
+      onDoNow();
+    }
+  };
+
+  const handleSkipAfterAnalysis = () => {
+    // If analysis is complete but user skips saving, still continue
+    onDoNow();
+  };
+
+  // Show inline analysis
+  if (showAnalysis) {
+    return (
+      <div className="max-w-lg mx-auto w-full">
+        <AnimatePresence mode="wait">
+          {analysisComplete ? (
+            <motion.div
+              key="complete"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <ColorAnalysis
+                onComplete={handleAnalysisComplete}
+                onSave={handleSave}
+                showSaveButton={true}
+              />
+              
+              {/* Skip option after analysis */}
+              <motion.div
+                className="mt-4 text-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.2 }}
+              >
+                <button
+                  onClick={handleSkipAfterAnalysis}
+                  className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+                >
+                  Salvar depois
+                </button>
+              </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="analysis"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <ColorAnalysis
+                onComplete={handleAnalysisComplete}
+                onSave={handleSave}
+                showSaveButton={true}
+              />
+              
+              {/* Back option */}
+              <motion.div
+                className="mt-6 text-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+              >
+                <button
+                  onClick={() => setShowAnalysis(false)}
+                  className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+                >
+                  ← Voltar
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // Initial teaser screen
   return (
     <div className="text-center max-w-lg mx-auto w-full">
       <motion.div
@@ -73,7 +174,7 @@ export function ColorTeaser({ onDoLater, onDoNow }: ColorTeaserProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
       >
-        A análise cromática te ajuda a escolher roupas que realçam sua beleza natural.
+        Nossa IA analisa sua foto e revela sua paleta perfeita em segundos.
       </motion.p>
 
       <motion.div
@@ -93,9 +194,10 @@ export function ColorTeaser({ onDoLater, onDoNow }: ColorTeaserProps) {
         <Button
           size="lg"
           className="text-lg px-8 py-6 gradient-primary text-primary-foreground shadow-glow"
-          onClick={onDoNow}
+          onClick={handleDoNow}
         >
-          Fazer agora ✨
+          Analisar agora ✨
+          <ArrowRight className="w-5 h-5 ml-2" />
         </Button>
       </motion.div>
     </div>
