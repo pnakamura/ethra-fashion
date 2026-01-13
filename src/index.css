@@ -206,9 +206,9 @@
     --sidebar-ring: 42 85% 55%;
 
     /* Art Background */
-    --art-bg-opacity: 0.08;
-    --art-bg-blur: 1px;
-    --art-overlay-intensity: 0.85;
+    --art-bg-opacity: 0.15;
+    --art-bg-blur: 0.5px;
+    --art-overlay-intensity: 0.75;
   }
 }
 

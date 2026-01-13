@@ -1,15 +1,21 @@
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { Sparkles, ArrowRight, Sun, Moon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from 'next-themes';
 
 export function HeroSection() {
   const navigate = useNavigate();
+  const { resolvedTheme, setTheme } = useTheme();
+
+  const toggleTheme = () => {
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+  };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden dark:bg-transparent">
       {/* Animated background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary/30 to-primary/10" />
+      <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary/30 to-primary/10 dark:from-transparent dark:via-transparent dark:to-transparent" />
       
       {/* Floating particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -33,6 +39,22 @@ export function HeroSection() {
             }}
           />
         ))}
+      </div>
+
+      {/* Theme toggle */}
+      <div className="absolute top-6 right-6 z-20">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={toggleTheme}
+          className="rounded-full border-primary/30 hover:bg-primary/10 dark:border-primary/40 dark:hover:bg-primary/20"
+        >
+          {resolvedTheme === 'dark' ? (
+            <Sun className="w-5 h-5 text-primary" />
+          ) : (
+            <Moon className="w-5 h-5 text-primary" />
+          )}
+        </Button>
       </div>
 
       {/* Content */}

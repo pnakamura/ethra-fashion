@@ -68,7 +68,7 @@ export default function Index() {
   if (!user) return null;
 
   return (
-    <>
+    <div className="min-h-screen dark:bg-transparent">
       <Header />
       <PageContainer className="px-4 py-6">
         <div className="max-w-lg mx-auto space-y-6">
@@ -113,6 +113,6 @@ export default function Index() {
         </div>
       </PageContainer>
       <BottomNav />
-    </>
+    </div>
   );
 }
