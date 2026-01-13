@@ -54,27 +54,33 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_favorite: boolean | null
           items: string[] | null
           name: string
           occasion: string | null
+          shared_at: string | null
           thumbnail_url: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          is_favorite?: boolean | null
           items?: string[] | null
           name: string
           occasion?: string | null
+          shared_at?: string | null
           thumbnail_url?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          is_favorite?: boolean | null
           items?: string[] | null
           name?: string
           occasion?: string | null
+          shared_at?: string | null
           thumbnail_url?: string | null
           user_id?: string
         }

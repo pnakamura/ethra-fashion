@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Save, Trash2, RotateCcw, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,10 +15,30 @@ interface CanvasItem {
 interface LookCanvasProps {
   availableItems: { id: string; image_url: string; category: string }[];
   onSave: (items: CanvasItem[], name: string) => void;
+  preloadItems?: { id: string; image_url: string }[] | null;
 }
 
-export function LookCanvas({ availableItems, onSave }: LookCanvasProps) {
+export function LookCanvas({ availableItems, onSave, preloadItems }: LookCanvasProps) {
   const [canvasItems, setCanvasItems] = useState<CanvasItem[]>([]);
+  const preloadedRef = useRef<string | null>(null);
+
+  // Preload items when opening a saved look
+  useEffect(() => {
+    if (preloadItems && preloadItems.length > 0) {
+      const preloadKey = preloadItems.map(i => i.id).join(',');
+      if (preloadedRef.current !== preloadKey) {
+        preloadedRef.current = preloadKey;
+        const newItems: CanvasItem[] = preloadItems.map((item, index) => ({
+          id: `${item.id}-${Date.now()}-${index}`,
+          image_url: item.image_url,
+          x: 50 + (index % 2) * 120,
+          y: 50 + Math.floor(index / 2) * 120,
+          scale: 1,
+        }));
+        setCanvasItems(newItems);
+      }
+    }
+  }, [preloadItems]);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
