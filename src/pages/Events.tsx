@@ -84,7 +84,7 @@ export default function Events() {
           </div>
 
           {/* Calendar Grid */}
-          <div className="bg-card rounded-2xl border border-border p-4">
+          <div className="bg-card rounded-2xl border border-border dark:border-primary/12 p-4 shadow-soft">
             {/* Weekday headers */}
             <div className="grid grid-cols-7 gap-1 mb-2">
               {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
@@ -176,10 +176,10 @@ export default function Events() {
                         key={event.id}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="p-4 rounded-xl bg-card border border-border"
+                        className="p-4 rounded-xl bg-card border border-border dark:border-primary/12 shadow-soft"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-full bg-primary/10 flex-shrink-0">
+                          <div className="p-2 rounded-full bg-primary/10 dark:bg-primary/20 flex-shrink-0">
                             <Icon className="w-4 h-4 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -232,9 +232,9 @@ export default function Events() {
                   return (
                     <div
                       key={event.id}
-                      className="p-3 rounded-xl bg-card border border-border flex items-center gap-3"
+                      className="p-3 rounded-xl bg-card border border-border dark:border-primary/12 flex items-center gap-3 shadow-soft"
                     >
-                      <div className="p-2 rounded-full bg-primary/10 flex-shrink-0">
+                      <div className="p-2 rounded-full bg-primary/10 dark:bg-primary/20 flex-shrink-0">
                         <Icon className="w-4 h-4 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">

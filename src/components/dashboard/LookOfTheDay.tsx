@@ -73,11 +73,11 @@ export function LookOfTheDay() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.5 }}
       >
-        <Card className="overflow-hidden border-0 shadow-elevated">
+        <Card className="overflow-hidden border border-border dark:border-primary/12">
           <div className="relative h-64 gradient-soft flex items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
             <div className="text-center z-10 px-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 dark:bg-primary/20 text-primary text-xs font-medium mb-4">
                 <Sparkles className="w-3 h-3" />
                 Look do Dia
               </div>
@@ -94,7 +94,7 @@ export function LookOfTheDay() {
           <div className="p-4">
             <button 
               onClick={() => navigate(!hasChromaticAnalysis ? '/chromatic' : '/wardrobe')}
-              className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-secondary hover:bg-accent transition-colors"
+              className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-secondary dark:bg-secondary/50 hover:bg-accent dark:hover:bg-primary/10 transition-colors border border-transparent dark:border-primary/10"
             >
               <span className="text-sm font-medium text-secondary-foreground">
                 {!hasChromaticAnalysis ? 'Fazer análise cromática' : 'Adicionar peças'}
@@ -115,8 +115,8 @@ export function LookOfTheDay() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.5 }}
       >
-        <Card className="overflow-hidden border-0 shadow-elevated">
-          <div className="h-64 bg-muted animate-pulse flex items-center justify-center">
+        <Card className="overflow-hidden border border-border dark:border-primary/12">
+          <div className="h-64 bg-muted dark:bg-muted/30 animate-pulse flex items-center justify-center">
             <RefreshCw className="w-8 h-8 text-muted-foreground animate-spin" />
           </div>
         </Card>
@@ -132,9 +132,9 @@ export function LookOfTheDay() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.5 }}
       >
-        <Card className="overflow-hidden border-0 shadow-elevated">
+        <Card className="overflow-hidden border border-border dark:border-primary/12">
           {/* Look preview */}
-          <div className="relative h-64 bg-muted">
+          <div className="relative h-64 bg-muted dark:bg-muted/30">
             <div className="absolute inset-0 grid grid-cols-2 gap-0.5">
               {todayLook.items.slice(0, 4).map((item) => (
                 <div key={item.id} className="overflow-hidden">
@@ -148,7 +148,7 @@ export function LookOfTheDay() {
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/20 backdrop-blur-sm text-primary text-xs font-medium mb-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/20 dark:bg-primary/30 backdrop-blur-sm text-primary text-xs font-medium mb-2">
                 <Sparkles className="w-3 h-3" />
                 Look do Dia
               </div>
@@ -163,7 +163,7 @@ export function LookOfTheDay() {
           <div className="p-4 flex gap-2">
             <button 
               onClick={() => navigate('/recommendations')}
-              className="flex-1 flex items-center justify-between py-3 px-4 rounded-xl bg-secondary hover:bg-accent transition-colors"
+              className="flex-1 flex items-center justify-between py-3 px-4 rounded-xl bg-secondary dark:bg-secondary/50 hover:bg-accent dark:hover:bg-primary/10 transition-colors border border-transparent dark:border-primary/10"
             >
               <span className="text-sm font-medium text-secondary-foreground">
                 Ver mais looks
@@ -175,7 +175,7 @@ export function LookOfTheDay() {
               size="icon"
               onClick={handleRefresh}
               disabled={isLoading}
-              className="rounded-xl"
+              className="rounded-xl dark:border-primary/20 dark:hover:bg-primary/10"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
@@ -192,11 +192,11 @@ export function LookOfTheDay() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1, duration: 0.5 }}
     >
-      <Card className="overflow-hidden border-0 shadow-elevated">
+      <Card className="overflow-hidden border border-border dark:border-primary/12">
         <div className="relative h-64 gradient-soft flex items-center justify-center">
           <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
           <div className="text-center z-10 px-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 dark:bg-primary/20 text-primary text-xs font-medium mb-4">
               <Sparkles className="w-3 h-3" />
               Look do Dia
             </div>
@@ -208,7 +208,7 @@ export function LookOfTheDay() {
             </p>
             <Button 
               onClick={handleRefresh} 
-              className="rounded-xl gradient-primary"
+              className="rounded-xl gradient-primary dark:shadow-[0_0_15px_hsl(45_100%_55%_/_0.2)]"
               disabled={isLoading}
             >
               {isLoading ? (

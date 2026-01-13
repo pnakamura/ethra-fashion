@@ -20,9 +20,9 @@ export function MissionCard({ itemCount }: MissionCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3, duration: 0.5 }}
     >
-      <Card className="p-5 border-0 shadow-soft bg-gradient-to-br from-primary/5 via-card to-gold-soft/20">
+      <Card className="p-5 border border-border dark:border-primary/12 bg-gradient-to-br from-primary/5 via-card to-gold-soft/20 dark:from-primary/10 dark:via-card dark:to-primary/5">
         <div className="flex items-start gap-4">
-          <div className="p-3 rounded-xl bg-primary/10">
+          <div className="p-3 rounded-xl bg-primary/10 dark:bg-primary/20">
             <Target className="w-5 h-5 text-primary" />
           </div>
           <div className="flex-1">
@@ -39,7 +39,7 @@ export function MissionCard({ itemCount }: MissionCardProps) {
                 <span>{itemCount} de 5 peças</span>
                 <span>{Math.round(progress)}%</span>
               </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div className="h-2 bg-muted dark:bg-muted/50 rounded-full overflow-hidden">
                 <motion.div
                   className="h-full gradient-primary rounded-full"
                   initial={{ width: 0 }}
@@ -51,7 +51,7 @@ export function MissionCard({ itemCount }: MissionCardProps) {
 
             <Button
               onClick={() => navigate('/wardrobe')}
-              className="w-full gradient-primary text-primary-foreground rounded-xl"
+              className="w-full gradient-primary text-primary-foreground rounded-xl dark:shadow-[0_0_15px_hsl(45_100%_55%_/_0.2)]"
             >
               Começar Agora
               <ArrowRight className="w-4 h-4 ml-2" />

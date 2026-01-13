@@ -19,10 +19,10 @@ export function Header({ title }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 glass border-b border-border dark:border-border/50">
+    <header className="sticky top-0 z-40 bg-background/95 dark:bg-background/98 backdrop-blur-xl border-b border-border dark:border-primary/15">
       <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto md:max-w-2xl lg:max-w-4xl">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-display font-semibold text-gradient dark:neon-text-gold">
+          <h1 className="text-2xl font-display font-semibold text-gradient">
             {title || 'Ethra'}
           </h1>
         </div>
@@ -31,17 +31,17 @@ export function Header({ title }: HeaderProps) {
           <div className="flex items-center gap-1">
             <NotificationBell />
             <Link to="/settings">
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <Settings className="w-5 h-5 text-muted-foreground" />
+              <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 dark:hover:bg-primary/20">
+                <Settings className="w-5 h-5 text-muted-foreground dark:text-muted-foreground" />
               </Button>
             </Link>
             <Button 
               variant="ghost" 
               size="icon" 
-              className="rounded-full"
+              className="rounded-full hover:bg-primary/10 dark:hover:bg-primary/20"
               onClick={handleSignOut}
             >
-              <LogOut className="w-5 h-5 text-muted-foreground" />
+              <LogOut className="w-5 h-5 text-muted-foreground dark:text-muted-foreground" />
             </Button>
           </div>
         )}
