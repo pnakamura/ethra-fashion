@@ -25,18 +25,32 @@ export function TemporaryPalettePreview({ temporarySeason, savedAnalysis }: Temp
     if (!user || !temporarySeason) return;
 
     try {
+      // Build complete analysis object matching ColorAnalysisResult interface
+      const completeAnalysis: ColorAnalysisResult = {
+        season_id: temporarySeason.id,
+        season_name: temporarySeason.name,
+        subtype: temporarySeason.subtype,
+        confidence: 100, // 100% because user chose manually
+        explanation: `Você escolheu a paleta ${temporarySeason.name} ${temporarySeason.subtype}. ${temporarySeason.description}`,
+        skin_tone: 'Escolha manual',
+        eye_color: 'Escolha manual',
+        hair_color: 'Escolha manual',
+        recommended_colors: temporarySeason.colors.primary.map(c => ({
+          hex: c.hex,
+          name: c.name
+        })),
+        avoid_colors: temporarySeason.colors.avoid.map(c => ({
+          hex: c.hex,
+          name: c.name
+        })),
+        analyzed_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('profiles')
         .update({
           color_season: temporarySeason.id,
-          color_analysis: {
-            season: temporarySeason.name,
-            subtype: temporarySeason.subtype,
-            season_id: temporarySeason.id,
-            recommended_colors: temporarySeason.colors.primary.map(c => c.name),
-            avoid_colors: temporarySeason.colors.avoid.map(c => c.name),
-            updated_at: new Date().toISOString(),
-          }
+          color_analysis: JSON.parse(JSON.stringify(completeAnalysis))
         })
         .eq('user_id', user.id);
 
