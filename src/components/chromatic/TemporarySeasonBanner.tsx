@@ -47,21 +47,36 @@ export function TemporarySeasonBanner() {
       {isUsingTemporary && temporarySeason && (
         <motion.div
           initial={{ opacity: 0, y: -20, height: 0 }}
-          animate={{ opacity: 1, y: 0, height: 'auto' }}
+          animate={{ 
+            opacity: 1, 
+            y: 0, 
+            height: 'auto',
+          }}
           exit={{ opacity: 0, y: -20, height: 0 }}
           className="overflow-hidden"
         >
-          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 rounded-xl p-4 mb-4">
+          <motion.div 
+            initial={{ scale: 0.98 }}
+            animate={{ scale: [1, 1.01, 1] }}
+            transition={{ duration: 0.4, times: [0, 0.5, 1] }}
+            className="bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-transparent 
+                       border-2 border-amber-500/50 rounded-xl p-4 mb-4
+                       shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+          >
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-primary/10 flex-shrink-0">
-                <Wand2 className="w-4 h-4 text-primary" />
-              </div>
+              <motion.div 
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="p-2 rounded-full bg-amber-500/20 flex-shrink-0"
+              >
+                <Wand2 className="w-4 h-4 text-amber-600" />
+              </motion.div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
                   Experimentando: {temporarySeason.name} {temporarySeason.subtype}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Suas recomendações estão baseadas nesta paleta
+                  Veja o preview abaixo
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -69,21 +84,21 @@ export function TemporarySeasonBanner() {
                   variant="ghost"
                   size="sm"
                   onClick={clearTemporary}
-                  className="h-8 px-2"
+                  className="h-8 px-2 hover:bg-amber-500/10"
                 >
                   <X className="w-4 h-4" />
                 </Button>
                 <Button
                   size="sm"
                   onClick={handleMakePermanent}
-                  className="h-8 gradient-primary"
+                  className="h-8 bg-amber-500 hover:bg-amber-600 text-white"
                 >
                   <Check className="w-4 h-4 mr-1" />
                   Usar
                 </Button>
               </div>
             </div>
-          </div>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

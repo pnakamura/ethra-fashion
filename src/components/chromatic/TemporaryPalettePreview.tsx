@@ -56,29 +56,59 @@ export function TemporaryPalettePreview({ temporarySeason, savedAnalysis }: Temp
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
+      initial={{ opacity: 0, y: 20, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.4 }}
+      className="space-y-6 relative"
     >
+      {/* Attention overlay that fades out */}
+      <motion.div
+        initial={{ opacity: 0.5 }}
+        animate={{ opacity: 0 }}
+        transition={{ delay: 1.5, duration: 0.8 }}
+        className="absolute inset-0 bg-gradient-to-b from-amber-500/10 to-transparent 
+                   rounded-2xl pointer-events-none z-10"
+      />
+      
       {/* Header */}
-      <div className="flex items-center justify-between p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+      <motion.div 
+        initial={{ scale: 0.95 }}
+        animate={{ scale: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        className="flex items-center justify-between p-4 rounded-xl 
+                   bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-transparent 
+                   border-2 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+      >
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-full bg-amber-500/20">
+          <motion.div 
+            animate={{ rotate: [0, 15, -15, 0] }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="p-2 rounded-full bg-amber-500/20"
+          >
             <Wand2 className="w-5 h-5 text-amber-600" />
-          </div>
+          </motion.div>
           <div>
-            <h3 className="font-semibold text-amber-700 dark:text-amber-400">
-              Preview: {temporarySeason.name} {temporarySeason.subtype}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-amber-700 dark:text-amber-400">
+                {temporarySeason.name} {temporarySeason.subtype}
+              </h3>
+              <motion.span 
+                animate={{ opacity: [1, 0.5, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/30 text-amber-700 dark:text-amber-300 font-medium"
+              >
+                PREVIEW
+              </motion.span>
+            </div>
             <p className="text-sm text-muted-foreground">
               Veja como seria usar esta paleta
             </p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={clearTemporary}>
+        <Button variant="ghost" size="sm" onClick={clearTemporary} className="hover:bg-amber-500/10">
           <X className="w-4 h-4" />
         </Button>
-      </div>
+      </motion.div>
 
       {/* Primary Colors */}
       <div className="space-y-3">

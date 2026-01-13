@@ -57,6 +57,13 @@ export default function Chromatic() {
     loadProfile();
   }, [user]);
 
+  // Auto-switch to palette tab when experimenting
+  useEffect(() => {
+    if (isUsingTemporary && temporarySeason) {
+      setActiveTab('palette');
+    }
+  }, [isUsingTemporary, temporarySeason]);
+
   const handleSaveAnalysis = async (analysis: ColorAnalysisResult) => {
     const success = await saveToProfile(analysis);
     if (success) {
@@ -156,6 +163,7 @@ export default function Chromatic() {
             <TabsContent value="explore" className="mt-4">
               <SeasonExplorer 
                 userSeasonId={savedAnalysis?.season_id}
+                onTryPalette={() => setActiveTab('palette')}
               />
             </TabsContent>
           </Tabs>

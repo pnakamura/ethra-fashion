@@ -10,6 +10,7 @@ import { useTemporarySeason } from '@/contexts/TemporarySeasonContext';
 interface SeasonExplorerProps {
   onSelectSeason?: (season: SeasonData) => void;
   userSeasonId?: string | null;
+  onTryPalette?: () => void;
 }
 
 type FilterType = 'all' | 'primavera' | 'verão' | 'outono' | 'inverno' | 'warm' | 'cool' | 'light' | 'deep';
@@ -29,7 +30,7 @@ const characteristicFilters = [
   { value: 'deep', label: 'Profundas' },
 ];
 
-export function SeasonExplorer({ onSelectSeason, userSeasonId }: SeasonExplorerProps) {
+export function SeasonExplorer({ onSelectSeason, userSeasonId, onTryPalette }: SeasonExplorerProps) {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSeason, setSelectedSeason] = useState<SeasonData | null>(null);
@@ -169,6 +170,7 @@ export function SeasonExplorer({ onSelectSeason, userSeasonId }: SeasonExplorerP
         onClose={() => setShowModal(false)}
         onSelect={onSelectSeason}
         isUserSeason={selectedSeason?.id === userSeasonId}
+        onTryPalette={onTryPalette}
       />
     </div>
   );

@@ -15,6 +15,7 @@ interface SeasonDetailModalProps {
   onClose: () => void;
   onSelect?: (season: SeasonData) => void;
   isUserSeason?: boolean;
+  onTryPalette?: () => void;
 }
 
 export function SeasonDetailModal({ 
@@ -22,7 +23,8 @@ export function SeasonDetailModal({
   isOpen, 
   onClose, 
   onSelect,
-  isUserSeason 
+  isUserSeason,
+  onTryPalette 
 }: SeasonDetailModalProps) {
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
   const { setTemporarySeason } = useTemporarySeason();
@@ -32,9 +34,12 @@ export function SeasonDetailModal({
   const handleTryPalette = () => {
     setTemporarySeason(season);
     toast.success(`Experimentando ${season.name} ${season.subtype}`, {
-      description: 'Suas recomendações agora usam esta paleta',
+      description: 'Veja o preview na aba "Minha Paleta"',
+      icon: <Wand2 className="w-4 h-4 text-amber-500" />,
+      duration: 4000,
     });
     onClose();
+    onTryPalette?.();
   };
 
   const handleCopyColor = (hex: string) => {
