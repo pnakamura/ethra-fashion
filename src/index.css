@@ -123,12 +123,77 @@
     --neon-violet: 238 45% 55%;
     --neon-lavender: 240 50% 75%;
 
-    /* Shadows - Glow violeta luxuoso */
+    /* Sistema de Sombras Hierárquico */
+    --shadow-xs: 0 1px 2px 0 hsl(0 0% 0% / 0.2);
+    --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.3), 
+                 0 1px 2px -1px hsl(0 0% 0% / 0.25);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.4), 
+                 0 2px 4px -2px hsl(0 0% 0% / 0.3);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.5), 
+                 0 4px 6px -4px hsl(0 0% 0% / 0.35);
+    --shadow-xl: 0 20px 25px -5px hsl(0 0% 0% / 0.6), 
+                 0 8px 10px -6px hsl(0 0% 0% / 0.4);
+    --shadow-2xl: 0 25px 50px -12px hsl(0 0% 0% / 0.7);
+    
+    /* Sombras Glow (paleta dourada) */
+    --shadow-glow: 0 0 15px hsl(42 85% 55% / 0.3),
+                   0 0 30px hsl(42 85% 55% / 0.15);
+    --shadow-glow-strong: 0 0 20px hsl(42 85% 55% / 0.5),
+                          0 0 40px hsl(42 85% 55% / 0.25),
+                          0 0 60px hsl(42 85% 55% / 0.1);
+    --shadow-glow-violet: 0 0 15px hsl(238 45% 55% / 0.4),
+                          0 0 30px hsl(238 45% 55% / 0.2);
+    
+    /* Sombra Interna */
+    --shadow-inner: inset 0 2px 4px 0 hsl(0 0% 0% / 0.3);
+
+    /* Sombras legado */
     --shadow-soft: 0 4px 25px -4px hsl(235 50% 3% / 0.7);
     --shadow-elevated: 0 8px 35px -8px hsl(235 50% 3% / 0.85);
-    --shadow-glow: 0 0 35px -8px hsl(42 85% 55% / 0.35);
     --shadow-neon: 0 0 25px hsl(238 45% 55% / 0.25), 
                    0 0 50px hsl(42 85% 55% / 0.12);
+
+    /* Glass Variables */
+    --glass-bg: hsl(235 50% 8% / 0.6);
+    --glass-border: hsl(42 85% 55% / 0.12);
+    --glass-blur: 16px;
+
+    /* Gradientes */
+    --gradient-background: linear-gradient(
+      180deg,
+      hsl(235 50% 6%) 0%,
+      hsl(235 55% 4%) 100%
+    );
+    
+    --gradient-card: linear-gradient(
+      135deg,
+      hsl(235 45% 10%) 0%,
+      hsl(235 50% 8%) 100%
+    );
+    
+    --gradient-glow: linear-gradient(
+      135deg,
+      hsl(42 85% 55% / 0.1) 0%,
+      hsl(238 45% 55% / 0.1) 100%
+    );
+    
+    --gradient-overlay: linear-gradient(
+      180deg,
+      hsl(235 50% 6% / 0) 0%,
+      hsl(235 50% 6% / 0.9) 100%
+    );
+    
+    --gradient-orb-gold: radial-gradient(
+      circle,
+      hsl(42 85% 55% / 0.25) 0%,
+      hsl(42 85% 55% / 0) 70%
+    );
+    
+    --gradient-orb-violet: radial-gradient(
+      circle,
+      hsl(238 45% 55% / 0.25) 0%,
+      hsl(238 45% 55% / 0) 70%
+    );
 
     /* Sidebar - Consistência com nova paleta */
     --sidebar-background: 235 45% 8%;
@@ -354,5 +419,151 @@
     html.font-normal { font-size: 16px; }
     html.font-large { font-size: 20px; }
     html.font-xlarge { font-size: 24px; }
+  }
+
+  /* ===== GLASS EFFECTS ===== */
+  .dark .glass-glow {
+    background: hsl(235 50% 8% / 0.5);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1.5px solid hsl(42 85% 55% / 0.25);
+    box-shadow: 0 0 30px hsl(42 85% 55% / 0.1);
+  }
+
+  .dark .glass-nav {
+    background: hsl(235 50% 6% / 0.85);
+    backdrop-filter: blur(20px);
+    border-top: 1.5px solid hsl(42 85% 55% / 0.15);
+    box-shadow: 0 -5px 20px hsl(0 0% 0% / 0.3);
+  }
+
+  /* ===== GRADIENT CLASSES ===== */
+  .dark .gradient-glow {
+    background: var(--gradient-glow);
+  }
+
+  .dark .gradient-card {
+    background: var(--gradient-card);
+  }
+
+  .dark .gradient-overlay {
+    background: var(--gradient-overlay);
+  }
+
+  /* ===== TEXT GLOW ===== */
+  .dark .text-glow {
+    text-shadow: 0 0 10px hsl(42 85% 55% / 0.6),
+                 0 0 20px hsl(42 85% 55% / 0.4),
+                 0 0 30px hsl(42 85% 55% / 0.2);
+  }
+
+  .dark .text-glow-violet {
+    text-shadow: 0 0 10px hsl(238 45% 55% / 0.7),
+                 0 0 20px hsl(238 45% 55% / 0.5),
+                 0 0 40px hsl(238 45% 55% / 0.3);
+  }
+
+  .dark .text-neon {
+    text-shadow: 
+      0 0 5px hsl(42 85% 55%),
+      0 0 10px hsl(42 85% 55%),
+      0 0 20px hsl(42 85% 55%),
+      0 0 40px hsl(42 85% 55% / 0.8),
+      0 0 80px hsl(42 85% 55% / 0.6);
+  }
+
+  /* ===== CARD GLOW ===== */
+  .dark .card-glow {
+    box-shadow: 0 0 20px hsl(42 85% 55% / 0.15),
+                0 0 40px hsl(42 85% 55% / 0.08);
+  }
+
+  .dark .card-glow-violet {
+    box-shadow: 0 0 20px hsl(238 45% 55% / 0.2),
+                0 0 40px hsl(238 45% 55% / 0.1);
+  }
+
+  .dark .card-neon {
+    border: 1.5px solid hsl(42 85% 55% / 0.35);
+    box-shadow: 
+      0 0 10px hsl(42 85% 55% / 0.2),
+      0 0 20px hsl(42 85% 55% / 0.1),
+      inset 0 0 20px hsl(42 85% 55% / 0.05);
+  }
+
+  /* ===== ICON GLOW ===== */
+  .dark .icon-glow {
+    filter: drop-shadow(0 0 6px hsl(42 85% 55% / 0.6));
+  }
+
+  .dark .icon-glow-violet {
+    filter: drop-shadow(0 0 6px hsl(238 45% 55% / 0.6));
+  }
+
+  /* ===== BUTTON GLOW ===== */
+  .dark .btn-glow {
+    box-shadow: 0 0 15px hsl(42 85% 55% / 0.4),
+                0 4px 15px hsl(0 0% 0% / 0.3);
+  }
+
+  .dark .btn-glow:hover {
+    box-shadow: 0 0 25px hsl(42 85% 55% / 0.6),
+                0 6px 20px hsl(0 0% 0% / 0.4);
+  }
+
+  /* ===== INPUT GLOW ===== */
+  .dark .input-glow:focus {
+    box-shadow: 0 0 0 2px hsl(42 85% 55% / 0.2),
+                0 0 15px hsl(42 85% 55% / 0.15);
+  }
+
+  /* ===== BADGE GLOW ===== */
+  .dark .badge-glow {
+    box-shadow: 0 0 10px currentColor;
+  }
+
+  /* ===== ANIMATED GLOW ===== */
+  .dark .glow-pulse {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .dark .glow-breathe {
+    animation: glow-breathe 4s ease-in-out infinite;
+  }
+
+  /* ===== CARD HOVER EFFECTS ===== */
+  .dark .card-elevated {
+    background: hsl(var(--card));
+    border: 1.5px solid hsl(42 85% 55% / 0.25);
+    box-shadow: var(--shadow-lg);
+    transition: all 0.3s ease;
+  }
+
+  .dark .card-elevated:hover {
+    border-color: hsl(42 85% 55% / 0.4);
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-2px);
+  }
+
+  /* ===== NAV ITEM EFFECTS ===== */
+  .dark .nav-item {
+    position: relative;
+    transition: all 0.2s ease;
+  }
+
+  .dark .nav-item:hover {
+    background: hsl(var(--muted));
+  }
+
+  .dark .nav-item.active {
+    background: hsl(42 85% 55% / 0.15);
+    color: hsl(42 85% 55%);
+    box-shadow: 0 0 15px hsl(42 85% 55% / 0.2);
+  }
+
+  /* ===== CARD SELECTED STATE ===== */
+  .dark .card-selected {
+    border: 2px solid hsl(42 85% 55%);
+    box-shadow: 0 0 20px hsl(42 85% 55% / 0.3);
   }
 }
