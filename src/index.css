@@ -204,6 +204,11 @@
     --sidebar-accent-foreground: 240 50% 90%;
     --sidebar-border: 238 30% 16%;
     --sidebar-ring: 42 85% 55%;
+
+    /* Art Background */
+    --art-bg-opacity: 0.08;
+    --art-bg-blur: 1px;
+    --art-overlay-intensity: 0.85;
   }
 }
 

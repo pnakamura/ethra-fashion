@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { TemporarySeasonProvider } from "@/contexts/TemporarySeasonContext";
 import { AccessibilityProvider } from "@/contexts/AccessibilityContext";
+import { ArtBackground } from "@/components/layout/ArtBackground";
 import Index from "./pages/Index";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
@@ -34,6 +35,7 @@ const App = () => (
           <TemporarySeasonProvider>
             <AccessibilityProvider>
               <TooltipProvider>
+                <ArtBackground />
                 <Toaster />
                 <Sonner />
                 <BrowserRouter>
