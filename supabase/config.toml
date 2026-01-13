@@ -17,3 +17,12 @@ verify_jwt = false
 
 [functions.suggest-looks]
 verify_jwt = false
+
+[functions.generate-daily-look]
+verify_jwt = false
+
+[functions.generate-event-look]
+verify_jwt = false
+
+[functions.generate-event-reminders]
+verify_jwt = false

@@ -76,49 +76,68 @@
   }
 
   .dark {
-    --background: 20 15% 8%;
-    --foreground: 35 20% 95%;
+    /* Base - Preto profundo com hint azulado luxuoso */
+    --background: 225 20% 4%;
+    --foreground: 45 15% 95%;
 
-    --card: 20 12% 12%;
-    --card-foreground: 35 20% 95%;
+    --card: 225 18% 7%;
+    --card-foreground: 45 15% 95%;
 
-    --popover: 20 12% 10%;
-    --popover-foreground: 35 20% 95%;
+    --popover: 225 20% 5%;
+    --popover-foreground: 45 15% 95%;
 
-    --primary: 14 50% 60%;
-    --primary-foreground: 20 15% 8%;
+    /* Primary - Dourado Neon Luxo */
+    --primary: 45 100% 58%;
+    --primary-foreground: 225 20% 5%;
 
-    --secondary: 20 10% 18%;
-    --secondary-foreground: 35 20% 90%;
+    /* Secondary - Azul escuro profundo */
+    --secondary: 225 30% 12%;
+    --secondary-foreground: 45 20% 90%;
 
-    --muted: 20 10% 20%;
-    --muted-foreground: 30 10% 55%;
+    /* Muted - Azul-cinza escuro */
+    --muted: 225 18% 14%;
+    --muted-foreground: 220 12% 50%;
 
-    --accent: 25 15% 22%;
-    --accent-foreground: 35 20% 90%;
+    /* Accent - Azul profundo com toque neon */
+    --accent: 220 45% 16%;
+    --accent-foreground: 45 25% 95%;
 
-    --destructive: 0 60% 45%;
-    --destructive-foreground: 35 20% 95%;
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 45 15% 95%;
 
-    --border: 20 10% 20%;
-    --input: 20 10% 22%;
-    --ring: 14 50% 60%;
+    --border: 225 20% 15%;
+    --input: 225 18% 12%;
+    --ring: 45 100% 58%;
 
-    --gold: 38 55% 50%;
-    --gold-soft: 38 30% 35%;
-    --champagne: 35 20% 25%;
-    --ivory: 40 15% 15%;
-    --charcoal: 35 20% 90%;
-    --warm-gray: 30 10% 50%;
+    /* Gold tokens - Neon dourado brilhante */
+    --gold: 45 100% 55%;
+    --gold-soft: 45 50% 35%;
+    --champagne: 40 25% 18%;
+    --ivory: 45 20% 12%;
+    --charcoal: 45 15% 92%;
+    --warm-gray: 35 12% 45%;
 
-    --sidebar-background: 20 12% 10%;
-    --sidebar-foreground: 35 20% 90%;
-    --sidebar-primary: 14 50% 60%;
-    --sidebar-primary-foreground: 20 15% 8%;
-    --sidebar-accent: 20 10% 18%;
-    --sidebar-accent-foreground: 35 20% 90%;
-    --sidebar-border: 20 10% 20%;
-    --sidebar-ring: 14 50% 60%;
+    /* Neon glow tokens */
+    --neon-gold: 45 100% 58%;
+    --neon-white: 45 15% 95%;
+    --neon-blue: 220 85% 55%;
+
+    /* Shadows - Glow neon luxuoso */
+    --shadow-soft: 0 4px 25px -4px hsl(225 50% 3% / 0.7);
+    --shadow-elevated: 0 8px 35px -8px hsl(225 50% 3% / 0.85);
+    --shadow-glow: 0 0 35px -8px hsl(45 100% 55% / 0.35);
+    --shadow-neon: 0 0 25px hsl(45 100% 55% / 0.25), 
+                   0 0 50px hsl(45 100% 55% / 0.12);
+
+    /* Sidebar - Mantendo consistência */
+    --sidebar-background: 225 18% 6%;
+    --sidebar-foreground: 45 20% 90%;
+    --sidebar-primary: 45 100% 58%;
+    --sidebar-primary-foreground: 225 20% 5%;
+    --sidebar-accent: 225 25% 14%;
+    --sidebar-accent-foreground: 45 20% 90%;
+    --sidebar-border: 225 18% 14%;
+    --sidebar-ring: 45 100% 58%;
   }
 }
 
@@ -151,8 +170,17 @@
     @apply bg-background/80 backdrop-blur-xl;
   }
 
+  .dark .glass {
+    @apply bg-background/90 backdrop-blur-2xl;
+    border: 1px solid hsl(var(--neon-gold) / 0.08);
+  }
+
   .gradient-primary {
     background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--gold)) 100%);
+  }
+
+  .dark .gradient-primary {
+    background: linear-gradient(135deg, hsl(45 100% 55%) 0%, hsl(45 85% 48%) 50%, hsl(220 70% 45%) 100%);
   }
 
   .gradient-soft {
@@ -166,6 +194,14 @@
     background-clip: text;
   }
 
+  .dark .text-gradient {
+    background: linear-gradient(135deg, hsl(45 100% 60%) 0%, hsl(45 100% 75%) 50%, hsl(45 90% 55%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+  }
+
   .shadow-soft {
     box-shadow: var(--shadow-soft);
   }
@@ -176,5 +212,71 @@
 
   .shadow-glow {
     box-shadow: var(--shadow-glow);
+  }
+
+  /* Neon glow effects for dark mode */
+  .neon-glow-gold {
+    box-shadow: 0 0 12px hsl(45 100% 55% / 0.35),
+                0 0 30px hsl(45 100% 55% / 0.2),
+                0 0 60px hsl(45 100% 55% / 0.1);
+  }
+
+  .neon-glow-white {
+    box-shadow: 0 0 12px hsl(45 20% 95% / 0.3),
+                0 0 28px hsl(45 20% 95% / 0.15);
+  }
+
+  .neon-glow-blue {
+    box-shadow: 0 0 12px hsl(220 85% 55% / 0.35),
+                0 0 30px hsl(220 85% 55% / 0.2);
+  }
+
+  .neon-text-gold {
+    text-shadow: 0 0 12px hsl(45 100% 55% / 0.5),
+                 0 0 25px hsl(45 100% 55% / 0.3);
+  }
+
+  .neon-border {
+    border-color: hsl(45 100% 55% / 0.4);
+    box-shadow: inset 0 0 12px hsl(45 100% 55% / 0.08),
+                0 0 12px hsl(45 100% 55% / 0.15);
+  }
+
+  .dark .neon-card {
+    @apply bg-card border border-border;
+    box-shadow: 0 0 1px hsl(45 100% 55% / 0.2),
+                inset 0 1px 0 hsl(45 100% 55% / 0.05);
+  }
+
+  .dark .neon-button {
+    box-shadow: 0 0 15px hsl(45 100% 55% / 0.3),
+                0 0 30px hsl(45 100% 55% / 0.15),
+                inset 0 1px 0 hsl(45 100% 80% / 0.2);
+  }
+
+  /* Font size accessibility classes */
+  html.font-normal {
+    font-size: 16px;
+  }
+
+  html.font-large {
+    font-size: 18px;
+  }
+
+  html.font-xlarge {
+    font-size: 20px;
+  }
+
+  /* Responsive font scaling */
+  @media (min-width: 768px) {
+    html.font-normal { font-size: 16px; }
+    html.font-large { font-size: 19px; }
+    html.font-xlarge { font-size: 22px; }
+  }
+
+  @media (min-width: 1024px) {
+    html.font-normal { font-size: 16px; }
+    html.font-large { font-size: 20px; }
+    html.font-xlarge { font-size: 24px; }
   }
 }

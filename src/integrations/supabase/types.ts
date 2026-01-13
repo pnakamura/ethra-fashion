@@ -205,12 +205,14 @@ export type Database = {
           color_analysis: Json | null
           color_season: string | null
           created_at: string
+          font_size: string | null
           id: string
           onboarding_complete: boolean | null
           style_archetype: string | null
           style_preferences: Json | null
           subscription_expires_at: string | null
           subscription_plan_id: string | null
+          theme_preference: string | null
           updated_at: string
           user_id: string
           username: string | null
@@ -220,12 +222,14 @@ export type Database = {
           color_analysis?: Json | null
           color_season?: string | null
           created_at?: string
+          font_size?: string | null
           id?: string
           onboarding_complete?: boolean | null
           style_archetype?: string | null
           style_preferences?: Json | null
           subscription_expires_at?: string | null
           subscription_plan_id?: string | null
+          theme_preference?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
@@ -235,12 +239,14 @@ export type Database = {
           color_analysis?: Json | null
           color_season?: string | null
           created_at?: string
+          font_size?: string | null
           id?: string
           onboarding_complete?: boolean | null
           style_archetype?: string | null
           style_preferences?: Json | null
           subscription_expires_at?: string | null
           subscription_plan_id?: string | null
+          theme_preference?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
@@ -430,42 +436,71 @@ export type Database = {
       }
       user_events: {
         Row: {
+          ai_suggestions: Json | null
           created_at: string | null
+          dress_code: string | null
           event_date: string
           event_time: string | null
           event_type: string
+          expected_attendees: string | null
           id: string
           is_notified: boolean | null
+          is_special_event: boolean | null
           location: string | null
           notes: string | null
+          outfit_id: string | null
+          reminder_sent_at: string | null
           title: string
           user_id: string
+          weather_info: Json | null
         }
         Insert: {
+          ai_suggestions?: Json | null
           created_at?: string | null
+          dress_code?: string | null
           event_date: string
           event_time?: string | null
           event_type?: string
+          expected_attendees?: string | null
           id?: string
           is_notified?: boolean | null
+          is_special_event?: boolean | null
           location?: string | null
           notes?: string | null
+          outfit_id?: string | null
+          reminder_sent_at?: string | null
           title: string
           user_id: string
+          weather_info?: Json | null
         }
         Update: {
+          ai_suggestions?: Json | null
           created_at?: string | null
+          dress_code?: string | null
           event_date?: string
           event_time?: string | null
           event_type?: string
+          expected_attendees?: string | null
           id?: string
           is_notified?: boolean | null
+          is_special_event?: boolean | null
           location?: string | null
           notes?: string | null
+          outfit_id?: string | null
+          reminder_sent_at?: string | null
           title?: string
           user_id?: string
+          weather_info?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_events_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
