@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -10,15 +11,15 @@ import { SeasonDetailModal } from '@/components/chromatic/SeasonDetailModal';
 import { TemporarySeasonBanner } from '@/components/chromatic/TemporarySeasonBanner';
 import { TemporaryPalettePreview } from '@/components/chromatic/TemporaryPalettePreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { useColorAnalysis, type ColorAnalysisResult } from '@/hooks/useColorAnalysis';
 import { useAuth } from '@/hooks/useAuth';
 import { useTemporarySeason } from '@/contexts/TemporarySeasonContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Palette, Sparkles, Compass } from 'lucide-react';
-import { getSeasonById } from '@/data/chromatic-seasons';
+import { Loader2, Palette, Sparkles, Compass, Camera, ArrowRight } from 'lucide-react';
+import { getSeasonById, chromaticSeasons } from '@/data/chromatic-seasons';
 import { calculateWardrobeStats } from '@/lib/chromatic-match';
-
 export default function Chromatic() {
   const { user } = useAuth();
   const { loadFromProfile, saveToProfile, result, reset } = useColorAnalysis();
@@ -139,10 +140,90 @@ export default function Chromatic() {
                   onRetry={handleNewAnalysis}
                 />
               ) : (
-                <div className="py-12 text-center text-muted-foreground">
-                  <Sparkles className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                  <p>Faça sua análise cromática para descobrir sua paleta ideal</p>
-                </div>
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-6"
+                >
+                  {/* Empty State Header */}
+                  <div className="text-center py-6">
+                    <motion.div 
+                      className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center"
+                      animate={{ scale: [1, 1.05, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      <Palette className="w-10 h-10 text-primary" />
+                    </motion.div>
+                    <h3 className="font-display text-xl font-semibold mb-2">
+                      Descubra sua paleta ideal
+                    </h3>
+                    <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                      A análise cromática revela as cores que harmonizam com seu tom de pele, olhos e cabelo
+                    </p>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      onClick={() => setActiveTab('analyze')}
+                      className="h-auto py-4 flex-col gap-2 gradient-primary text-primary-foreground"
+                    >
+                      <Camera className="w-5 h-5" />
+                      <span className="text-sm font-medium">Fazer Análise</span>
+                      <span className="text-xs opacity-80">Com IA e selfie</span>
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => setActiveTab('explore')}
+                      className="h-auto py-4 flex-col gap-2"
+                    >
+                      <Compass className="w-5 h-5" />
+                      <span className="text-sm font-medium">Explorar Paletas</span>
+                      <span className="text-xs text-muted-foreground">12 estações</span>
+                    </Button>
+                  </div>
+
+                  {/* Preview of Seasons */}
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground text-center">
+                      Prévia das estações cromáticas
+                    </p>
+                    <div className="grid grid-cols-4 gap-2">
+                      {chromaticSeasons.slice(0, 4).map((season, i) => (
+                        <motion.div
+                          key={season.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.1 + i * 0.1 }}
+                          className="text-center"
+                        >
+                          <div className="flex -space-x-1 justify-center mb-2">
+                            {season.colors.primary.slice(0, 3).map((color) => (
+                              <div
+                                key={color.hex}
+                                className="w-5 h-5 rounded-full border-2 border-card shadow-sm"
+                                style={{ backgroundColor: color.hex }}
+                              />
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {season.name}
+                          </p>
+                        </motion.div>
+                      ))}
+                    </div>
+                    
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setActiveTab('explore')}
+                      className="w-full text-primary"
+                    >
+                      Ver todas as 12 estações
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
+                </motion.div>
               )}
             </TabsContent>
 
