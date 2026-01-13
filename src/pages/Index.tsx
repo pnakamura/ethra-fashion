@@ -10,6 +10,8 @@ import { MissionCard } from '@/components/dashboard/MissionCard';
 import { TemporarySeasonBanner } from '@/components/chromatic/TemporarySeasonBanner';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { Sparkles, ChevronRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export default function Index() {
   const { user, loading } = useAuth();
@@ -78,6 +80,34 @@ export default function Index() {
           <TemporarySeasonBanner />
           
           <QuickActions />
+
+          {/* Card promocional do Provador Virtual */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            onClick={() => navigate('/provador')}
+            className="cursor-pointer p-4 rounded-2xl border transition-all
+              bg-gradient-to-r from-[hsl(238_45%_55%_/_0.08)] to-primary/8 
+              border-[hsl(238_45%_55%_/_0.15)] hover:border-[hsl(238_45%_55%_/_0.25)]
+              dark:from-[hsl(238_45%_55%_/_0.12)] dark:to-primary/12
+              dark:border-[hsl(238_45%_55%_/_0.2)] dark:hover:border-[hsl(238_45%_55%_/_0.35)]
+              dark:shadow-[0_0_20px_hsl(238_45%_55%_/_0.08)] dark:hover:shadow-[0_0_25px_hsl(238_45%_55%_/_0.15)]"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-[hsl(238_45%_55%_/_0.15)] dark:bg-[hsl(238_45%_55%_/_0.25)]">
+                  <Sparkles className="w-5 h-5 text-[hsl(240_50%_75%)]" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Espelho Neural</h3>
+                  <p className="text-sm text-muted-foreground">Experimente roupas virtualmente</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </div>
+          </motion.div>
+
           <LookOfTheDay />
           <MissionCard itemCount={itemCount} />
         </div>

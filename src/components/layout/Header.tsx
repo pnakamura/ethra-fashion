@@ -1,4 +1,4 @@
-import { Settings, LogOut, Home, Shirt, Palette, Sparkles, Calendar } from 'lucide-react';
+import { Settings, LogOut, Home, Shirt, Palette, Sparkles, Calendar, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
@@ -13,8 +13,9 @@ interface HeaderProps {
 const navLinks = [
   { path: '/', label: 'Início', icon: Home },
   { path: '/wardrobe', label: 'Closet', icon: Shirt },
+  { path: '/provador', label: 'Provador', icon: Sparkles },
   { path: '/chromatic', label: 'Cores', icon: Palette },
-  { path: '/canvas', label: 'Looks', icon: Sparkles },
+  { path: '/canvas', label: 'Looks', icon: Layers },
   { path: '/events', label: 'Agenda', icon: Calendar },
 ];
 
@@ -29,7 +30,7 @@ export function Header({ title }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-background/95 dark:bg-background/98 backdrop-blur-xl border-b border-border dark:border-primary/15">
+    <header className="sticky top-0 z-40 bg-background/95 dark:bg-background/98 backdrop-blur-xl border-b border-border dark:border-[hsl(238_45%_55%_/_0.15)] dark:shadow-[0_1px_15px_hsl(238_45%_55%_/_0.08)]">
       <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto md:max-w-2xl lg:max-w-5xl xl:max-w-6xl">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-display font-semibold text-gradient">

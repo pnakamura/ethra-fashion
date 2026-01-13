@@ -76,68 +76,69 @@
   }
 
   .dark {
-    /* Base - Preto profundo com hint azulado luxuoso */
-    --background: 225 20% 4%;
-    --foreground: 45 15% 95%;
+    /* Base - Azul profundo elegante inspirado na imagem */
+    --background: 235 50% 6%;
+    --foreground: 45 20% 95%;
 
-    --card: 225 18% 7%;
-    --card-foreground: 45 15% 95%;
+    --card: 235 45% 10%;
+    --card-foreground: 45 20% 95%;
 
-    --popover: 225 20% 5%;
-    --popover-foreground: 45 15% 95%;
+    --popover: 235 50% 8%;
+    --popover-foreground: 45 20% 95%;
 
-    /* Primary - Dourado Neon Luxo */
-    --primary: 45 100% 58%;
-    --primary-foreground: 225 20% 5%;
+    /* Primary - Dourado Âmbar quente */
+    --primary: 42 85% 55%;
+    --primary-foreground: 235 50% 6%;
 
-    /* Secondary - Azul escuro profundo */
-    --secondary: 225 30% 12%;
-    --secondary-foreground: 45 20% 90%;
+    /* Secondary - Azul violeta */
+    --secondary: 238 40% 20%;
+    --secondary-foreground: 240 50% 85%;
 
-    /* Muted - Azul-cinza escuro */
-    --muted: 225 18% 14%;
-    --muted-foreground: 220 12% 50%;
+    /* Muted - Azul acinzentado */
+    --muted: 238 30% 18%;
+    --muted-foreground: 240 20% 55%;
 
-    /* Accent - Azul profundo com toque neon */
-    --accent: 220 45% 16%;
-    --accent-foreground: 45 25% 95%;
+    /* Accent - Violeta suave */
+    --accent: 240 35% 25%;
+    --accent-foreground: 240 50% 90%;
 
     --destructive: 0 65% 50%;
     --destructive-foreground: 45 15% 95%;
 
-    --border: 225 20% 15%;
-    --input: 225 18% 12%;
-    --ring: 45 100% 58%;
+    --border: 238 35% 18%;
+    --input: 238 35% 14%;
+    --ring: 42 85% 55%;
 
-    /* Gold tokens - Neon dourado brilhante */
-    --gold: 45 100% 55%;
-    --gold-soft: 45 50% 35%;
-    --champagne: 40 25% 18%;
-    --ivory: 45 20% 12%;
+    /* Gold tokens - Âmbar dourado */
+    --gold: 42 85% 55%;
+    --gold-soft: 42 50% 35%;
+    --champagne: 235 30% 18%;
+    --ivory: 235 25% 12%;
     --charcoal: 45 15% 92%;
-    --warm-gray: 35 12% 45%;
+    --warm-gray: 240 15% 50%;
 
-    /* Neon glow tokens */
-    --neon-gold: 45 100% 58%;
-    --neon-white: 45 15% 95%;
-    --neon-blue: 220 85% 55%;
+    /* Neon glow tokens - Violeta + Âmbar */
+    --neon-gold: 42 85% 55%;
+    --neon-white: 45 20% 95%;
+    --neon-violet: 238 45% 55%;
+    --neon-lavender: 240 50% 75%;
 
-    /* Shadows - Glow neon luxuoso */
-    --shadow-soft: 0 4px 25px -4px hsl(225 50% 3% / 0.7);
-    --shadow-elevated: 0 8px 35px -8px hsl(225 50% 3% / 0.85);
-    --shadow-glow: 0 0 35px -8px hsl(45 100% 55% / 0.35);
-    --shadow-neon: 0 0 25px hsl(45 100% 55% / 0.25), 
-                   0 0 50px hsl(45 100% 55% / 0.12);
+    /* Shadows - Glow violeta luxuoso */
+    --shadow-soft: 0 4px 25px -4px hsl(235 50% 3% / 0.7);
+    --shadow-elevated: 0 8px 35px -8px hsl(235 50% 3% / 0.85);
+    --shadow-glow: 0 0 35px -8px hsl(42 85% 55% / 0.35);
+    --shadow-neon: 0 0 25px hsl(238 45% 55% / 0.25), 
+                   0 0 50px hsl(42 85% 55% / 0.12);
 
-    /* Sidebar - Mantendo consistência */
-    --sidebar-background: 225 18% 6%;
+    /* Sidebar - Consistência com nova paleta */
+    --sidebar-background: 235 45% 8%;
     --sidebar-foreground: 45 20% 90%;
-    --sidebar-primary: 45 100% 58%;
-    --sidebar-primary-foreground: 225 20% 5%;
-    --sidebar-accent: 225 25% 14%;
-    --sidebar-accent-foreground: 45 20% 90%;
-    --sidebar-border: 225 18% 14%;
-    --sidebar-ring: 45 100% 58%;
+    --sidebar-primary: 42 85% 55%;
+    --sidebar-primary-foreground: 235 50% 6%;
+    --sidebar-accent: 238 35% 18%;
+    --sidebar-accent-foreground: 240 50% 90%;
+    --sidebar-border: 238 30% 16%;
+    --sidebar-ring: 42 85% 55%;
   }
 }
 
@@ -257,15 +258,32 @@
                 0 0 30px hsl(220 85% 55% / 0.2);
   }
 
+  /* Glow violeta para elementos decorativos */
+  .neon-glow-violet {
+    box-shadow: 0 0 15px hsl(238 45% 55% / 0.4),
+                0 0 30px hsl(238 45% 55% / 0.2);
+  }
+
   .neon-text-gold {
-    text-shadow: 0 0 12px hsl(45 100% 55% / 0.5),
-                 0 0 25px hsl(45 100% 55% / 0.3);
+    text-shadow: 0 0 12px hsl(42 85% 55% / 0.5),
+                 0 0 25px hsl(42 85% 55% / 0.3);
+  }
+
+  .neon-text-violet {
+    text-shadow: 0 0 12px hsl(238 45% 55% / 0.5),
+                 0 0 25px hsl(238 45% 55% / 0.3);
   }
 
   .neon-border {
-    border-color: hsl(45 100% 55% / 0.25);
-    box-shadow: inset 0 0 8px hsl(45 100% 55% / 0.05),
-                0 0 8px hsl(45 100% 55% / 0.1);
+    border-color: hsl(42 85% 55% / 0.25);
+    box-shadow: inset 0 0 8px hsl(42 85% 55% / 0.05),
+                0 0 8px hsl(42 85% 55% / 0.1);
+  }
+
+  /* Borda com glow violeta sutil */
+  .border-glow-violet {
+    border-color: hsl(238 45% 55% / 0.3);
+    box-shadow: 0 0 10px hsl(238 45% 55% / 0.15);
   }
 
   /* Dark mode card styles */
