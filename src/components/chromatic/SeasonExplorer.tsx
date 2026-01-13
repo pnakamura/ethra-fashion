@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, Users, Info } from 'lucide-react';
+import { Search, Filter, Users, Info, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { chromaticSeasons, type SeasonData } from '@/data/chromatic-seasons';
 import { SeasonDetailModal } from './SeasonDetailModal';
+import { useTemporarySeason } from '@/contexts/TemporarySeasonContext';
 
 interface SeasonExplorerProps {
   onSelectSeason?: (season: SeasonData) => void;
@@ -33,6 +34,7 @@ export function SeasonExplorer({ onSelectSeason, userSeasonId }: SeasonExplorerP
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSeason, setSelectedSeason] = useState<SeasonData | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const { temporarySeason } = useTemporarySeason();
 
   const filteredSeasons = chromaticSeasons.filter(season => {
     // Search filter
@@ -135,6 +137,7 @@ export function SeasonExplorer({ onSelectSeason, userSeasonId }: SeasonExplorerP
               <SeasonCard
                 season={season}
                 isUserSeason={season.id === userSeasonId}
+                isExperimenting={season.id === temporarySeason?.id}
                 onClick={() => handleSeasonClick(season)}
               />
             </motion.div>
@@ -174,20 +177,28 @@ export function SeasonExplorer({ onSelectSeason, userSeasonId }: SeasonExplorerP
 interface SeasonCardProps {
   season: SeasonData;
   isUserSeason: boolean;
+  isExperimenting?: boolean;
   onClick: () => void;
 }
 
-function SeasonCard({ season, isUserSeason, onClick }: SeasonCardProps) {
+function SeasonCard({ season, isUserSeason, isExperimenting = false, onClick }: SeasonCardProps) {
+  // Determine card styling based on state
+  const getCardClasses = () => {
+    if (isUserSeason) {
+      return 'border-primary bg-primary/5 shadow-glow';
+    }
+    if (isExperimenting) {
+      return 'border-amber-500 border-dashed bg-amber-500/5 ring-2 ring-amber-500/20';
+    }
+    return 'border-border bg-card hover:border-primary/30 hover:shadow-soft';
+  };
+
   return (
     <motion.button
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
-        isUserSeason
-          ? 'border-primary bg-primary/5 shadow-glow'
-          : 'border-border bg-card hover:border-primary/30 hover:shadow-soft'
-      }`}
+      className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${getCardClasses()}`}
     >
       {/* Header with colors */}
       <div className="flex items-start justify-between mb-3">
@@ -208,9 +219,16 @@ function SeasonCard({ season, isUserSeason, onClick }: SeasonCardProps) {
         {season.name} {season.subtype}
       </h3>
       
+      {/* Badge for user season or experimenting */}
       {isUserSeason && (
         <span className="inline-block mt-1 text-xs text-primary font-medium px-2 py-0.5 rounded-full bg-primary/10">
           Sua paleta
+        </span>
+      )}
+      {isExperimenting && !isUserSeason && (
+        <span className="inline-flex items-center gap-1 mt-1 text-xs text-amber-600 dark:text-amber-400 font-medium px-2 py-0.5 rounded-full bg-amber-500/10">
+          <Wand2 className="w-3 h-3" />
+          <span className="animate-pulse">Experimentando</span>
         </span>
       )}
 

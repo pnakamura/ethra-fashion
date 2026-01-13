@@ -7,6 +7,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { LookOfTheDay } from '@/components/dashboard/LookOfTheDay';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { MissionCard } from '@/components/dashboard/MissionCard';
+import { TemporarySeasonBanner } from '@/components/chromatic/TemporarySeasonBanner';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -73,6 +74,8 @@ export default function Index() {
             <h2 className="text-3xl font-display font-semibold mb-1">Olá!</h2>
             <p className="text-muted-foreground">O que vamos vestir hoje?</p>
           </div>
+          
+          <TemporarySeasonBanner />
           
           <QuickActions />
           <LookOfTheDay />

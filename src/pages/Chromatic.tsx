@@ -7,9 +7,12 @@ import { ColorAnalysisResult as ColorResultDisplay } from '@/components/chromati
 import { ChromaticHero } from '@/components/chromatic/ChromaticHero';
 import { SeasonExplorer } from '@/components/chromatic/SeasonExplorer';
 import { SeasonDetailModal } from '@/components/chromatic/SeasonDetailModal';
+import { TemporarySeasonBanner } from '@/components/chromatic/TemporarySeasonBanner';
+import { TemporaryPalettePreview } from '@/components/chromatic/TemporaryPalettePreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useColorAnalysis, type ColorAnalysisResult } from '@/hooks/useColorAnalysis';
 import { useAuth } from '@/hooks/useAuth';
+import { useTemporarySeason } from '@/contexts/TemporarySeasonContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Palette, Sparkles, Compass } from 'lucide-react';
@@ -19,6 +22,7 @@ import { calculateWardrobeStats } from '@/lib/chromatic-match';
 export default function Chromatic() {
   const { user } = useAuth();
   const { loadFromProfile, saveToProfile, result, reset } = useColorAnalysis();
+  const { temporarySeason, isUsingTemporary, getEffectiveSeason } = useTemporarySeason();
   const [loading, setLoading] = useState(true);
   const [savedAnalysis, setSavedAnalysis] = useState<ColorAnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState('palette');
@@ -87,9 +91,14 @@ export default function Chromatic() {
       <Header title="Cromática" />
       <PageContainer className="px-4 py-6">
         <div className="max-w-lg mx-auto space-y-6">
+          {/* Temporary Season Banner */}
+          <TemporarySeasonBanner />
+
           {/* Hero section */}
           <ChromaticHero
             analysis={savedAnalysis}
+            temporarySeason={temporarySeason}
+            isUsingTemporary={isUsingTemporary}
             wardrobeStats={wardrobeStats}
             onExploreClick={() => setShowSeasonDetail(true)}
             onNewAnalysis={handleNewAnalysis}
@@ -112,7 +121,12 @@ export default function Chromatic() {
             </TabsList>
 
             <TabsContent value="palette" className="mt-4">
-              {savedAnalysis ? (
+              {isUsingTemporary && temporarySeason ? (
+                <TemporaryPalettePreview 
+                  temporarySeason={temporarySeason}
+                  savedAnalysis={savedAnalysis}
+                />
+              ) : savedAnalysis ? (
                 <ColorResultDisplay
                   result={savedAnalysis}
                   onRetry={handleNewAnalysis}

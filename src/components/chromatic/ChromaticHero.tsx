@@ -1,12 +1,14 @@
 import { motion } from 'framer-motion';
-import { Sparkles, ChevronRight, Shirt, Star, AlertTriangle } from 'lucide-react';
+import { Sparkles, ChevronRight, Shirt, Star, AlertTriangle, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { getSeasonById } from '@/data/chromatic-seasons';
+import { getSeasonById, type SeasonData } from '@/data/chromatic-seasons';
 import type { ColorAnalysisResult } from '@/hooks/useColorAnalysis';
 
 interface ChromaticHeroProps {
   analysis: ColorAnalysisResult | null;
+  temporarySeason?: SeasonData | null;
+  isUsingTemporary?: boolean;
   wardrobeStats?: {
     ideal: number;
     neutral: number;
@@ -19,17 +21,22 @@ interface ChromaticHeroProps {
 
 export function ChromaticHero({ 
   analysis, 
+  temporarySeason,
+  isUsingTemporary = false,
   wardrobeStats,
   onExploreClick,
   onNewAnalysis 
 }: ChromaticHeroProps) {
   const navigate = useNavigate();
-  const season = analysis ? getSeasonById(analysis.season_id) : null;
+  const savedSeason = analysis ? getSeasonById(analysis.season_id) : null;
   
-  // Get gradient colors from season or default
+  // Use temporary season for display if experimenting
+  const displaySeason = isUsingTemporary && temporarySeason ? temporarySeason : savedSeason;
+  
+  // Get gradient colors from display season or default
   const getGradientColors = () => {
-    if (season) {
-      const colors = season.colors.primary.slice(0, 4).map(c => c.hex);
+    if (displaySeason) {
+      const colors = displaySeason.colors.primary.slice(0, 4).map(c => c.hex);
       return colors;
     }
     return ['#E6E6FA', '#FFB6C1', '#87CEEB', '#98FB98'];
@@ -37,7 +44,7 @@ export function ChromaticHero({
   
   const gradientColors = getGradientColors();
 
-  if (!analysis) {
+  if (!analysis && !isUsingTemporary) {
     // Empty state - CTA to analyze
     return (
       <motion.div
@@ -82,7 +89,11 @@ export function ChromaticHero({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-2xl bg-card border border-border/50 shadow-soft"
+      className={`relative overflow-hidden rounded-2xl bg-card border shadow-soft ${
+        isUsingTemporary 
+          ? 'border-amber-500/50 ring-2 ring-amber-500/20' 
+          : 'border-border/50'
+      }`}
     >
       {/* Gradient background */}
       <div 
@@ -102,13 +113,15 @@ export function ChromaticHero({
             className="relative flex-shrink-0"
           >
             <div
-              className="w-20 h-20 rounded-full shadow-elevated"
+              className={`w-20 h-20 rounded-full shadow-elevated ${
+                isUsingTemporary ? 'ring-2 ring-amber-500/50' : ''
+              }`}
               style={{
                 background: `conic-gradient(from 0deg, ${gradientColors.join(', ')})`,
               }}
             />
             <div className="absolute inset-2 rounded-full bg-card flex items-center justify-center">
-              <span className="text-2xl">{season?.seasonIcon || '🎨'}</span>
+              <span className="text-2xl">{displaySeason?.seasonIcon || '🎨'}</span>
             </div>
           </motion.div>
           
@@ -119,14 +132,29 @@ export function ChromaticHero({
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <h2 className="font-display text-2xl font-semibold text-gradient">
-                {analysis.season_name}
-              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-display text-2xl font-semibold text-gradient">
+                  {displaySeason?.name || analysis?.season_name}
+                </h2>
+                {isUsingTemporary && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-medium"
+                  >
+                    <Wand2 className="w-3 h-3" />
+                    <span className="animate-pulse">Experimentando</span>
+                  </motion.span>
+                )}
+              </div>
               <p className="text-lg text-foreground/80 font-display">
-                {analysis.subtype}
+                {displaySeason?.subtype || analysis?.subtype}
               </p>
               <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                {season?.shortDescription || analysis.explanation}
+                {isUsingTemporary 
+                  ? 'Preview visual - não é sua paleta salva' 
+                  : (displaySeason?.shortDescription || analysis?.explanation)
+                }
               </p>
             </motion.div>
           </div>
@@ -142,8 +170,8 @@ export function ChromaticHero({
           </Button>
         </div>
         
-        {/* Quick stats */}
-        {wardrobeStats && wardrobeStats.total > 0 && (
+        {/* Quick stats - only show for saved analysis */}
+        {!isUsingTemporary && wardrobeStats && wardrobeStats.total > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -193,7 +221,17 @@ export function ChromaticHero({
           className="mt-5 flex items-center gap-2"
         >
           <div className="flex -space-x-1">
-            {analysis.recommended_colors.slice(0, 6).map((color, i) => (
+            {displaySeason?.colors.primary.slice(0, 6).map((color, i) => (
+              <motion.div
+                key={color.hex}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.5 + i * 0.05 }}
+                className="w-6 h-6 rounded-full border-2 border-card shadow-sm"
+                style={{ backgroundColor: color.hex }}
+                title={color.name}
+              />
+            )) || analysis?.recommended_colors.slice(0, 6).map((color, i) => (
               <motion.div
                 key={color.hex}
                 initial={{ scale: 0 }}
@@ -206,7 +244,10 @@ export function ChromaticHero({
             ))}
           </div>
           <span className="text-xs text-muted-foreground">
-            +{Math.max(0, analysis.recommended_colors.length - 6)} cores
+            {displaySeason 
+              ? `+${Math.max(0, displaySeason.colors.primary.length - 6)} cores`
+              : `+${Math.max(0, (analysis?.recommended_colors.length || 0) - 6)} cores`
+            }
           </span>
         </motion.div>
       </div>
