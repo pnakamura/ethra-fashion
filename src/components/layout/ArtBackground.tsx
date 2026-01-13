@@ -1,10 +1,10 @@
 import { useTheme } from 'next-themes';
 
 export function ArtBackground() {
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
   
   // Só exibir no modo escuro
-  if (theme !== 'dark') return null;
+  if (resolvedTheme !== 'dark') return null;
   
   return (
     <div className="fixed inset-0 z-[-1] pointer-events-none overflow-hidden">
