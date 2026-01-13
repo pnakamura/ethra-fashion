@@ -86,6 +86,41 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_limits: {
+        Row: {
+          feature_display_name: string | null
+          feature_key: string
+          id: string
+          limit_type: string
+          limit_value: number
+          plan_id: string | null
+        }
+        Insert: {
+          feature_display_name?: string | null
+          feature_key: string
+          id?: string
+          limit_type: string
+          limit_value: number
+          plan_id?: string | null
+        }
+        Update: {
+          feature_display_name?: string | null
+          feature_key?: string
+          id?: string
+          limit_type?: string
+          limit_value?: number
+          plan_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_limits_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -96,6 +131,8 @@ export type Database = {
           onboarding_complete: boolean | null
           style_archetype: string | null
           style_preferences: Json | null
+          subscription_expires_at: string | null
+          subscription_plan_id: string | null
           updated_at: string
           user_id: string
           username: string | null
@@ -109,6 +146,8 @@ export type Database = {
           onboarding_complete?: boolean | null
           style_archetype?: string | null
           style_preferences?: Json | null
+          subscription_expires_at?: string | null
+          subscription_plan_id?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
@@ -122,11 +161,21 @@ export type Database = {
           onboarding_complete?: boolean | null
           style_archetype?: string | null
           style_preferences?: Json | null
+          subscription_expires_at?: string | null
+          subscription_plan_id?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_subscription_plan_id_fkey"
+            columns: ["subscription_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       recommended_looks: {
         Row: {
@@ -152,6 +201,42 @@ export type Database = {
           look_data?: Json
           occasion?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      subscription_plans: {
+        Row: {
+          badge_color: string | null
+          created_at: string | null
+          description: string | null
+          display_name: string
+          id: string
+          is_active: boolean | null
+          price_monthly: number | null
+          price_yearly: number | null
+          sort_order: number | null
+        }
+        Insert: {
+          badge_color?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_name: string
+          id: string
+          is_active?: boolean | null
+          price_monthly?: number | null
+          price_yearly?: number | null
+          sort_order?: number | null
+        }
+        Update: {
+          badge_color?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          price_monthly?: number | null
+          price_yearly?: number | null
+          sort_order?: number | null
         }
         Relationships: []
       }
@@ -265,6 +350,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       wardrobe_items: {
         Row: {
           category: string
@@ -322,9 +431,24 @@ export type Database = {
         Args: { p_color_analysis: Json; p_dominant_colors: Json }
         Returns: string
       }
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      setup_first_admin: {
+        Args: { _secret_key: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -451,6 +575,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const

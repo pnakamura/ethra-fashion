@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { Plus, Filter, Check, Minus, AlertTriangle } from 'lucide-react';
+import { Plus, Filter, Check, Minus, AlertTriangle, Crown } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { WardrobeGrid } from '@/components/wardrobe/WardrobeGrid';
 import { AddItemSheet } from '@/components/wardrobe/AddItemSheet';
 import { Button } from '@/components/ui/button';
+import { UsageIndicator } from '@/components/subscription/UsageIndicator';
+import { usePermission } from '@/hooks/usePermission';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +28,8 @@ export default function Wardrobe() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const wardrobePermission = usePermission('wardrobe_slots');
 
   const { data: items = [] } = useQuery({
     queryKey: ['wardrobe-items', user?.id],
@@ -111,7 +116,8 @@ export default function Wardrobe() {
                 {filteredItems.length} {compatibilityFilter !== 'all' ? `de ${items.length}` : ''} itens
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-3">
+              <UsageIndicator feature="wardrobe_slots" compact />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button 
@@ -138,11 +144,15 @@ export default function Wardrobe() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button onClick={() => setIsAddOpen(true)} className="rounded-xl gradient-primary text-primary-foreground">
-                <Plus className="w-4 h-4 mr-1" /> Nova
-              </Button>
-            </div>
-          </div>
+              {wardrobePermission.hasAccess ? (
+                <Button onClick={() => setIsAddOpen(true)} className="rounded-xl gradient-primary text-primary-foreground">
+                  <Plus className="w-4 h-4 mr-1" /> Nova
+                </Button>
+              ) : (
+                <Button onClick={() => navigate('/subscription')} variant="outline" className="rounded-xl">
+                  <Crown className="w-4 h-4 mr-1" /> Upgrade
+                </Button>
+              )}
 
           {filteredItems.length === 0 ? (
             <div className="py-16 text-center">
