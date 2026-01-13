@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -141,7 +142,7 @@ export function EventPlanner({ wardrobeItems, onEventCreated }: EventPlannerProp
         notes: notes || null,
         dress_code: dressCode,
         is_special_event: true,
-        ai_suggestions: suggestions.length > 0 ? JSON.parse(JSON.stringify(suggestions)) : null,
+        ai_suggestions: (suggestions.length > 0 ? suggestions : null) as unknown as Json,
       }]);
 
       if (error) throw error;
