@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, Camera, Image as ImageIcon } from 'lucide-react';
+import { X, Upload, Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useGarmentColorAnalysis } from '@/hooks/useGarmentColorAnalysis';
+
+interface DominantColor {
+  hex: string;
+  name: string;
+  percentage: number;
+}
 
 interface AddItemSheetProps {
   isOpen: boolean;
@@ -22,6 +29,7 @@ interface AddItemSheetProps {
     season_tag: string;
     occasion: string;
     image_url: string;
+    dominant_colors?: DominantColor[];
   }) => void;
 }
 
@@ -36,6 +44,46 @@ export function AddItemSheet({ isOpen, onClose, onAdd }: AddItemSheetProps) {
   const [seasonTag, setSeasonTag] = useState('');
   const [occasion, setOccasion] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [analyzedColors, setAnalyzedColors] = useState<DominantColor[] | null>(null);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { isAnalyzing, analyzeGarment } = useGarmentColorAnalysis();
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      setImageUrl(base64);
+
+      // Analyze colors automatically
+      const result = await analyzeGarment(base64);
+      if (result) {
+        setAnalyzedColors(result.dominant_colors);
+        // Set color_code to most dominant color
+        if (result.dominant_colors[0]) {
+          setColorCode(result.dominant_colors[0].hex);
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCameraClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.setAttribute('capture', 'environment');
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleGalleryClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.removeAttribute('capture');
+      fileInputRef.current.click();
+    }
+  };
 
   const handleSubmit = () => {
     if (!category) return;
@@ -47,6 +95,7 @@ export function AddItemSheet({ isOpen, onClose, onAdd }: AddItemSheetProps) {
       season_tag: seasonTag,
       occasion,
       image_url: imageUrl || `https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=400&h=400&fit=crop`,
+      dominant_colors: analyzedColors || undefined,
     });
     
     // Reset form
@@ -56,6 +105,22 @@ export function AddItemSheet({ isOpen, onClose, onAdd }: AddItemSheetProps) {
     setSeasonTag('');
     setOccasion('');
     setImageUrl('');
+    setAnalyzedColors(null);
+    onClose();
+  };
+
+  const resetForm = () => {
+    setName('');
+    setCategory('');
+    setColorCode('#e5d5c5');
+    setSeasonTag('');
+    setOccasion('');
+    setImageUrl('');
+    setAnalyzedColors(null);
+  };
+
+  const handleClose = () => {
+    resetForm();
     onClose();
   };
 
@@ -63,12 +128,21 @@ export function AddItemSheet({ isOpen, onClose, onAdd }: AddItemSheetProps) {
     <AnimatePresence>
       {isOpen && (
         <>
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+          
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={handleClose}
             className="fixed inset-0 bg-charcoal/40 backdrop-blur-sm z-50"
           />
           
@@ -88,7 +162,7 @@ export function AddItemSheet({ isOpen, onClose, onAdd }: AddItemSheetProps) {
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-display font-semibold">Nova Peça</h2>
                 <button
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="p-2 rounded-full hover:bg-muted transition-colors"
                 >
                   <X className="w-5 h-5 text-muted-foreground" />
@@ -97,21 +171,72 @@ export function AddItemSheet({ isOpen, onClose, onAdd }: AddItemSheetProps) {
 
               {/* Image upload area */}
               <div className="mb-6">
-                <div className="aspect-square max-w-[200px] mx-auto rounded-2xl bg-muted border-2 border-dashed border-border flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-primary/50 transition-colors">
-                  <div className="p-4 rounded-full bg-secondary">
-                    <Upload className="w-6 h-6 text-muted-foreground" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-foreground">Adicionar foto</p>
-                    <p className="text-xs text-muted-foreground">ou arraste aqui</p>
-                  </div>
+                <div 
+                  onClick={handleGalleryClick}
+                  className="aspect-square max-w-[200px] mx-auto rounded-2xl bg-muted border-2 border-dashed border-border flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-primary/50 transition-colors relative overflow-hidden"
+                >
+                  {imageUrl ? (
+                    <>
+                      <img 
+                        src={imageUrl} 
+                        alt="Preview" 
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                      {isAnalyzing && (
+                        <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center">
+                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                          <span className="text-sm mt-2 font-medium">Analisando cores...</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-4 rounded-full bg-secondary">
+                        <Upload className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-foreground">Adicionar foto</p>
+                        <p className="text-xs text-muted-foreground">ou arraste aqui</p>
+                      </div>
+                    </>
+                  )}
                 </div>
+
+                {/* Analyzed colors preview */}
+                {analyzedColors && analyzedColors.length > 0 && (
+                  <div className="flex flex-col items-center gap-2 mt-3">
+                    <span className="text-xs text-muted-foreground">Cores detectadas:</span>
+                    <div className="flex gap-1.5 justify-center">
+                      {analyzedColors.map((color, i) => (
+                        <div
+                          key={i}
+                          className="w-7 h-7 rounded-full border-2 border-background shadow-md"
+                          style={{ backgroundColor: color.hex }}
+                          title={`${color.name} (${color.percentage}%)`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex justify-center gap-4 mt-4">
-                  <Button variant="outline" size="sm" className="rounded-xl">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-xl"
+                    onClick={handleCameraClick}
+                    disabled={isAnalyzing}
+                  >
                     <Camera className="w-4 h-4 mr-2" />
                     Câmera
                   </Button>
-                  <Button variant="outline" size="sm" className="rounded-xl">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-xl"
+                    onClick={handleGalleryClick}
+                    disabled={isAnalyzing}
+                  >
                     <ImageIcon className="w-4 h-4 mr-2" />
                     Galeria
                   </Button>
@@ -202,10 +327,17 @@ export function AddItemSheet({ isOpen, onClose, onAdd }: AddItemSheetProps) {
 
                 <Button
                   onClick={handleSubmit}
-                  disabled={!category}
+                  disabled={!category || isAnalyzing}
                   className="w-full h-12 rounded-xl gradient-primary text-primary-foreground font-medium mt-6"
                 >
-                  Adicionar ao Closet
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Analisando...
+                    </>
+                  ) : (
+                    'Adicionar ao Closet'
+                  )}
                 </Button>
               </div>
             </div>

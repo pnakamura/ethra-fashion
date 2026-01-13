@@ -45,12 +45,32 @@ export default function Wardrobe() {
     return item.chromatic_compatibility === compatibilityFilter;
   });
 
+  interface DominantColor {
+    hex: string;
+    name: string;
+    percentage: number;
+  }
+
   const addMutation = useMutation({
-    mutationFn: async (item: { name: string; category: string; color_code: string; season_tag: string; occasion: string; image_url: string }) => {
+    mutationFn: async (item: { 
+      name: string; 
+      category: string; 
+      color_code: string; 
+      season_tag: string; 
+      occasion: string; 
+      image_url: string;
+      dominant_colors?: DominantColor[];
+    }) => {
       if (!user) throw new Error('Not authenticated');
       const { error } = await supabase.from('wardrobe_items').insert({
         user_id: user.id,
-        ...item,
+        name: item.name,
+        category: item.category,
+        color_code: item.color_code,
+        season_tag: item.season_tag,
+        occasion: item.occasion,
+        image_url: item.image_url,
+        dominant_colors: item.dominant_colors ? JSON.parse(JSON.stringify(item.dominant_colors)) : null,
       });
       if (error) throw error;
     },
