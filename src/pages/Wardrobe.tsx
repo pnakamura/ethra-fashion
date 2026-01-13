@@ -153,6 +153,8 @@ export default function Wardrobe() {
                   <Crown className="w-4 h-4 mr-1" /> Upgrade
                 </Button>
               )}
+            </div>
+          </div>
 
           {filteredItems.length === 0 ? (
             <div className="py-16 text-center">
