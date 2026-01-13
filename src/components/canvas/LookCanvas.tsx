@@ -29,7 +29,7 @@ export function LookCanvas({ availableItems, onSave, preloadItems }: LookCanvasP
       if (preloadedRef.current !== preloadKey) {
         preloadedRef.current = preloadKey;
         const newItems: CanvasItem[] = preloadItems.map((item, index) => ({
-          id: `${item.id}-${Date.now()}-${index}`,
+          id: `${item.id}:::${Date.now()}:::${index}`,
           image_url: item.image_url,
           x: 50 + (index % 2) * 120,
           y: 50 + Math.floor(index / 2) * 120,
@@ -44,7 +44,7 @@ export function LookCanvas({ availableItems, onSave, preloadItems }: LookCanvasP
 
   const addToCanvas = (item: { id: string; image_url: string }) => {
     const newItem: CanvasItem = {
-      id: `${item.id}-${Date.now()}`,
+      id: `${item.id}:::${Date.now()}`,
       image_url: item.image_url,
       x: 50 + Math.random() * 100,
       y: 50 + Math.random() * 100,

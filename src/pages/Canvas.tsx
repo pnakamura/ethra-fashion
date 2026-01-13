@@ -137,9 +137,9 @@ export default function Canvas() {
 
   // Handle save from canvas
   const handleSave = (canvasItems: CanvasItem[], name: string) => {
-    // Extract original item IDs (remove timestamp suffix)
+    // Extract original item IDs (remove timestamp suffix using ::: separator)
     const itemIds = canvasItems
-      .map(item => item.id.split('-')[0])
+      .map(item => item.id.split(':::')[0])
       .filter((id, index, arr) => arr.indexOf(id) === index); // Remove duplicates
     
     if (itemIds.length === 0) {
