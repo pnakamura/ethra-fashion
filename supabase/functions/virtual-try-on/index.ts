@@ -118,11 +118,34 @@ serve(async (req) => {
       }
 
       console.log("Calling IDM-VTON via Replicate (specialized try-on model)...");
-      
+
       // Determine category for IDM-VTON
-      const idmCategory = category === "upper_body" ? "upper_body" : 
-                          category === "lower_body" ? "lower_body" : 
-                          category === "dresses" ? "dresses" : "upper_body";
+      const idmCategory = category === "upper_body" ? "upper_body" :
+        category === "lower_body" ? "lower_body" :
+        category === "dresses" ? "dresses" : "upper_body";
+
+      // Always resolve the latest Replicate version at runtime (older pinned versions can break)
+      let idmVersion = "c871bb9b046607b680449ecbae55fd8c6d945e0a1948644bf2361b3d021d3ff4";
+      try {
+        const modelRes = await fetch("https://api.replicate.com/v1/models/cuuupid/idm-vton", {
+          headers: {
+            "Authorization": `Token ${REPLICATE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+        });
+        if (modelRes.ok) {
+          const modelJson = await modelRes.json();
+          const latest = modelJson?.latest_version?.id;
+          if (latest) {
+            idmVersion = latest;
+            console.log("Resolved IDM-VTON latest version:", idmVersion);
+          }
+        } else {
+          console.warn("Could not resolve IDM-VTON latest version:", modelRes.status);
+        }
+      } catch (e) {
+        console.warn("Failed to resolve IDM-VTON latest version, using pinned version.");
+      }
 
       const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
         method: "POST",
@@ -131,7 +154,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          version: "c871bb9b046607b680449ecbae55fd8c6d945e0a1948644bf2361b3d021d3ff4",
+          version: idmVersion,
           input: {
             garm_img: garmentImageUrl,
             human_img: avatarImageUrl,
