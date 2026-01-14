@@ -249,7 +249,7 @@ export default function VirtualTryOn() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-screen bg-background dark:bg-transparent flex flex-col">
         <Header />
         <PageContainer className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -269,7 +269,7 @@ export default function VirtualTryOn() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background dark:bg-transparent flex flex-col">
       <Header />
 
       <PageContainer className="flex-1 pb-24">

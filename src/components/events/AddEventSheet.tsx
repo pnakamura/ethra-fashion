@@ -80,7 +80,7 @@ export function AddEventSheet({ trigger, defaultDate, onEventCreated }: AddEvent
           <SheetTitle className="font-display">Novo Evento</SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-5 overflow-y-auto pb-24">
+        <div className="space-y-5 overflow-y-auto pb-32 max-h-[calc(85vh-140px)]">
           {/* Title */}
           <div>
             <label className="text-sm font-medium mb-2 block">Título</label>
@@ -194,7 +194,7 @@ export function AddEventSheet({ trigger, defaultDate, onEventCreated }: AddEvent
           </div>
         </div>
 
-        <SheetFooter className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
+        <SheetFooter className="absolute bottom-0 left-0 right-0 p-4 pb-8 z-10 bg-gradient-to-t from-background via-background/98 to-transparent backdrop-blur-sm">
           <Button
             onClick={handleSubmit}
             disabled={isAdding || !title.trim() || !eventDate}
