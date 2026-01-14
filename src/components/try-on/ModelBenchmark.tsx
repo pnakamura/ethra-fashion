@@ -16,13 +16,16 @@ import {
   Shirt,
   Trophy,
   ExternalLink,
-  DollarSign
+  DollarSign,
+  Download,
+  Maximize2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -120,6 +123,7 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showWardrobeSelector, setShowWardrobeSelector] = useState(false);
   const [selectedClosetItem, setSelectedClosetItem] = useState<{ id: string; name: string } | null>(null);
+  const [viewingImage, setViewingImage] = useState<{ url: string; model: string } | null>(null);
   
   // Refs for cleanup
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -275,6 +279,36 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
         const cost = parseFloat((r.cost || '$0.00').replace('$', '').replace(' (included)', ''));
         return sum + (isNaN(cost) ? 0 : cost);
       }, 0);
+  };
+
+  // Download image (handles both URLs and base64)
+  const downloadImage = async (imageUrl: string, modelName: string) => {
+    try {
+      let blob: Blob;
+      
+      if (imageUrl.startsWith('data:')) {
+        // Handle base64 data URLs
+        const response = await fetch(imageUrl);
+        blob = await response.blob();
+      } else {
+        // Handle regular URLs
+        const response = await fetch(imageUrl);
+        blob = await response.blob();
+      }
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `benchmark-${modelName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Imagem baixada!`);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Erro ao baixar imagem');
+    }
   };
 
   return (
@@ -718,7 +752,7 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                               {(result.processingTimeMs / 1000).toFixed(1)}s
                             </Badge>
                           )}
-                          {/* Cost Badge - NEW */}
+                          {/* Cost Badge */}
                           {result.cost && (
                             <Badge 
                               variant="outline" 
@@ -731,6 +765,12 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                             >
                               <DollarSign className="w-3 h-3 mr-0.5" />
                               {result.cost.replace(' (included)', '')}
+                            </Badge>
+                          )}
+                          {/* Base64 indicator */}
+                          {isSuccess && result.resultImageUrl?.startsWith('data:') && (
+                            <Badge variant="outline" className="text-[9px] text-blue-500 border-blue-500/30">
+                              Base64
                             </Badge>
                           )}
                           {!isSuccess && (
@@ -752,7 +792,7 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                               className="w-full h-auto max-h-[400px] object-contain bg-secondary/30"
                             />
                             {/* Overlay actions on hover */}
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                               <Button
                                 size="sm"
                                 onClick={() => onSelectResult?.(result.resultImageUrl!, result.model)}
@@ -763,9 +803,16 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => window.open(result.resultImageUrl, '_blank')}
+                                onClick={() => setViewingImage({ url: result.resultImageUrl!, model: modelInfo.name })}
                               >
-                                Abrir
+                                <Maximize2 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => downloadImage(result.resultImageUrl!, modelInfo.name)}
+                              >
+                                <Download className="w-4 h-4" />
                               </Button>
                             </div>
                           </div>
@@ -807,6 +854,48 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
           </CardContent>
         </Card>
       )}
+
+      {/* Full-size Image Viewer Modal */}
+      <Dialog open={!!viewingImage} onOpenChange={() => setViewingImage(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-2">
+            <DialogTitle className="flex items-center gap-2">
+              <ImageIcon className="w-5 h-5" />
+              Resultado: {viewingImage?.model}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="relative bg-secondary/30 flex items-center justify-center p-4 max-h-[70vh] overflow-auto">
+            {viewingImage && (
+              <img
+                src={viewingImage.url}
+                alt={`Resultado ${viewingImage.model}`}
+                className="max-w-full max-h-full object-contain"
+                style={{ imageRendering: 'auto' }}
+              />
+            )}
+          </div>
+          <div className="p-4 pt-2 flex justify-end gap-2 border-t border-border/50">
+            <Button
+              variant="outline"
+              onClick={() => viewingImage && downloadImage(viewingImage.url, viewingImage.model)}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Baixar
+            </Button>
+            <Button
+              onClick={() => {
+                if (viewingImage) {
+                  onSelectResult?.(viewingImage.url, viewingImage.model);
+                  setViewingImage(null);
+                }
+              }}
+              className="gradient-primary"
+            >
+              Usar Esta Imagem
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

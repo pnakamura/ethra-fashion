@@ -103,49 +103,78 @@ Figure 1: The person (preserve identity exactly)
 Figure 2: The garment to apply`;
 };
 
-// Get prompt for Gemini model
+// Get prompt for Gemini model - ENHANCED ANTI-DISTORTION VERSION
 const getGeminiPrompt = (category: string): string => {
   const normalized = (category || "upper_body").toLowerCase();
   const WIDTH = 768;
   const HEIGHT = 1024;
 
-  let categoryInstruction = "Replace ONLY the clothing on the upper body/torso area";
+  let categoryInstruction = "Replace ONLY the clothing on the upper body/torso area (shirt, blouse, jacket, sweater)";
   if (normalized === "lower_body") {
-    categoryInstruction = "Replace ONLY the lower body clothing (pants, skirt, shorts)";
+    categoryInstruction = "Replace ONLY the lower body clothing (pants, skirt, shorts, jeans)";
   } else if (normalized === "dresses") {
-    categoryInstruction = "Replace the full outfit with the dress shown";
+    categoryInstruction = "Replace the full outfit with the dress/full garment shown";
   }
 
-  return `You are an expert virtual fashion photography AI.
+  return `You are an elite virtual try-on AI specializing in photorealistic fashion imaging.
 
-TASK: Create a single image showing the person from image 1 wearing the garment from image 2.
+TASK: Create ONE image showing the person from IMAGE 1 wearing the garment from IMAGE 2.
 
 ===== MANDATORY OUTPUT SPECIFICATIONS =====
-OUTPUT DIMENSIONS: Exactly ${WIDTH} pixels wide by ${HEIGHT} pixels tall
-ASPECT RATIO: Exactly 3:4 portrait (0.75)
-ORIENTATION: Vertical/Portrait ONLY
+OUTPUT DIMENSIONS: Exactly ${WIDTH}x${HEIGHT} pixels
+ASPECT RATIO: 3:4 portrait (0.75) - VERTICAL ONLY
+ORIENTATION: Portrait/Vertical - NEVER landscape
 
 ===== GARMENT APPLICATION =====
 ${categoryInstruction}
-- The garment should drape naturally following the body's contours
-- Add natural fabric shadows and wrinkles
-- Maintain realistic lighting matching the original photo
+- Drape the garment naturally following body contours
+- Add realistic fabric shadows, wrinkles, and folds
+- Match lighting direction and intensity from original photo
+- Preserve garment colors, patterns, and textures exactly as shown
+
+===== ABSOLUTE BODY PROPORTION RULES (CRITICAL) =====
+DO NOT modify ANY body proportions:
+- Keep EXACT head-to-body ratio
+- Preserve EXACT shoulder width
+- Maintain EXACT torso length and width
+- Keep EXACT waist-to-hip ratio
+- Preserve EXACT arm and leg proportions
+- DO NOT widen, narrow, elongate, or compress ANY body part
+- The person must look IDENTICAL in build to the original
+
+===== ANATOMICAL ACCURACY - HANDS (CRITICAL) =====
+Hands are extremely important - follow these rules:
+- Each hand MUST have exactly 5 fingers
+- Preserve EXACT hand positions from original
+- Keep natural finger spacing and proportions
+- DO NOT add, remove, merge, or distort fingers
+- DO NOT change hand poses or gestures
+- If hands are visible, they must look NATURAL and REALISTIC
 
 ===== IDENTITY PRESERVATION (NON-NEGOTIABLE) =====
 These must be PIXEL-PERFECT identical to input:
-- Face features, expression, skin tone
-- Hair color, hairstyle, hair position
-- Body shape, weight, curves, proportions
-- Pose (exact arm and leg positions)
-- Hand positions and gestures (EXACTLY 5 fingers per hand)
-- Background (keep EXACTLY the same)
+- Face: exact features, expression, skin tone, makeup
+- Hair: color, style, position, texture
+- Body: shape, weight, curves, silhouette
+- Pose: exact arm/leg positions, body angle
+- Background: keep 100% unchanged
+
+===== WHAT YOU MUST NOT DO =====
+- DO NOT warp, stretch, or compress the body
+- DO NOT change facial features or expression
+- DO NOT modify hair color or style
+- DO NOT add extra fingers or merge fingers
+- DO NOT change the background
+- DO NOT add watermarks, text, or logos
+- DO NOT create multiple people or split images
+- DO NOT generate landscape orientation
 
 ===== FINAL OUTPUT =====
-- One single photorealistic image
+- ONE single photorealistic image
 - Dimensions: ${WIDTH}x${HEIGHT} pixels exactly
-- Full body visible (head to at least mid-thigh)
-- Fashion editorial quality
-- No text, watermarks, or artifacts`;
+- Full body visible: head to at least mid-thigh
+- Fashion editorial quality, magazine-ready
+- Natural, believable result - like a real photo`;
 };
 
 // Helper to get latest model version from Replicate
