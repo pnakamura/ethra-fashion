@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import * as base64url from "https://deno.land/std@0.168.0/encoding/base64url.ts";
+import * as base64 from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,11 +33,14 @@ interface ServiceAccountCredentials {
 // Helper to wait
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Base64url encode (RFC 4648)
+// Base64url encode (RFC 4648) - usando Deno std library para suporte UTF-8 completo
 const base64urlEncode = (data: Uint8Array | string): string => {
-  const str = typeof data === 'string' ? data : new TextDecoder().decode(data);
-  const base64 = btoa(str);
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  if (typeof data === 'string') {
+    // Converter string para Uint8Array usando TextEncoder (suporta UTF-8)
+    const bytes = new TextEncoder().encode(data);
+    return base64url.encode(bytes.buffer as ArrayBuffer);
+  }
+  return base64url.encode((data as Uint8Array).buffer as ArrayBuffer);
 };
 
 // Create JWT for Google Cloud authentication
@@ -117,7 +122,7 @@ const getAccessToken = async (credentials: ServiceAccountCredentials): Promise<s
   return data.access_token;
 };
 
-// Fetch image as base64
+// Fetch image as base64 - usando Deno std library para suporte a grandes arquivos
 const fetchImageAsBase64 = async (url: string): Promise<string> => {
   console.log(`[Vertex AI] Fetching image: ${url.substring(0, 50)}...`);
   
@@ -127,9 +132,10 @@ const fetchImageAsBase64 = async (url: string): Promise<string> => {
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-  console.log(`[Vertex AI] Image fetched, size: ${base64.length} chars`);
-  return base64;
+  // Usar encode da std library (aceita ArrayBuffer diretamente)
+  const encoded = base64.encode(arrayBuffer);
+  console.log(`[Vertex AI] Image fetched, size: ${encoded.length} chars`);
+  return encoded;
 };
 
 // Call Vertex AI Virtual Try-On
