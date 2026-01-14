@@ -74,6 +74,11 @@ export function VirtualTryOnDemo() {
     setError(null);
 
     try {
+      console.log('Starting demo try-on with:', { 
+        hasAvatar: !!avatarImage, 
+        garment: selectedGarment.name 
+      });
+      
       const response = await supabase.functions.invoke('virtual-try-on', {
         body: {
           avatarImageUrl: avatarImage,
@@ -83,15 +88,26 @@ export function VirtualTryOnDemo() {
         },
       });
 
+      console.log('Demo try-on response:', response);
+
       if (response.error) {
+        console.error('Supabase function error:', response.error);
         throw new Error(response.error.message || 'Falha ao processar');
       }
 
-      if (!response.data?.success) {
-        throw new Error(response.data?.error || 'Falha ao processar');
+      const data = response.data;
+      console.log('Response data:', data);
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Falha ao processar');
       }
 
-      setResultImage(response.data.resultImageUrl);
+      if (!data.resultImageUrl) {
+        throw new Error('Nenhuma imagem retornada pelo servidor');
+      }
+
+      console.log('Setting result image:', data.resultImageUrl.substring(0, 100) + '...');
+      setResultImage(data.resultImageUrl);
       setStep('result');
       localStorage.setItem(DEMO_STORAGE_KEY, Date.now().toString());
     } catch (err) {
