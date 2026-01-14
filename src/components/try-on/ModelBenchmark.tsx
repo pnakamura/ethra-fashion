@@ -12,15 +12,20 @@ import {
   RotateCcw,
   ImageIcon,
   AlertTriangle,
-  StopCircle
+  StopCircle,
+  Shirt,
+  Trophy,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { WardrobeSelector } from './WardrobeSelector';
 
 interface BenchmarkModel {
   id: string;
@@ -28,6 +33,7 @@ interface BenchmarkModel {
   icon: typeof Zap;
   color: string;
   description: string;
+  apiProvider: 'replicate' | 'lovable';
 }
 
 interface ModelResult {
@@ -58,23 +64,26 @@ const BENCHMARK_MODELS: BenchmarkModel[] = [
     name: 'Seedream 4.5',
     icon: Crown,
     color: 'text-purple-500 bg-purple-500/10 border-purple-500/30',
-    description: 'ByteDance - Alta qualidade'
+    description: 'ByteDance - Alta qualidade',
+    apiProvider: 'replicate'
   },
   {
     id: 'seedream-4.0',
     name: 'Seedream 4.0',
     icon: Sparkles,
     color: 'text-blue-500 bg-blue-500/10 border-blue-500/30',
-    description: 'ByteDance - Balanceado'
+    description: 'ByteDance - Balanceado',
+    apiProvider: 'replicate'
   },
   {
     id: 'gemini',
     name: 'Gemini 3 Pro',
     icon: Zap,
     color: 'text-amber-500 bg-amber-500/10 border-amber-500/30',
-    description: 'Google - Rápido'
+    description: 'Google - Rápido',
+    apiProvider: 'lovable'
   },
-];
+] as const;
 
 // Timeout constants
 const BENCHMARK_TIMEOUT_MS = 180000; // 3 minutes
@@ -92,6 +101,8 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
   const [results, setResults] = useState<ModelResult[]>([]);
   const [benchmarkSummary, setBenchmarkSummary] = useState<BenchmarkResponse | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [showWardrobeSelector, setShowWardrobeSelector] = useState(false);
+  const [selectedClosetItem, setSelectedClosetItem] = useState<{ id: string; name: string } | null>(null);
   
   // Refs for cleanup
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -265,7 +276,16 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                   <Icon className={cn("w-5 h-5", isSelected && model.color.split(' ')[0])} />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="font-medium text-sm">{model.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm">{model.name}</p>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 opacity-60">
+                      {model.apiProvider === 'replicate' ? (
+                        <><ExternalLink className="w-2.5 h-2.5 mr-0.5" /> Replicate</>
+                      ) : (
+                        'Lovable AI'
+                      )}
+                    </Badge>
+                  </div>
                   <p className="text-xs text-muted-foreground">{model.description}</p>
                 </div>
                 <div className={cn(
@@ -284,22 +304,77 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
         </CardContent>
       </Card>
 
-      {/* Custom Garment URL (optional) */}
+      {/* Garment Selection */}
       <Card className="border-border/50">
-        <CardContent className="pt-4">
-          <label className="text-xs text-muted-foreground mb-2 block">
-            URL da Roupa (opcional - usa imagem padrão se vazio)
-          </label>
-          <input
-            type="url"
-            value={garmentUrl}
-            onChange={(e) => setGarmentUrl(e.target.value)}
-            placeholder="https://exemplo.com/roupa.jpg"
-            disabled={isRunning}
-            className="w-full px-3 py-2 text-sm rounded-lg bg-secondary/50 border border-border focus:border-primary focus:outline-none disabled:opacity-50"
-          />
+        <CardContent className="pt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-muted-foreground">
+              Roupa para testar
+            </label>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowWardrobeSelector(true)}
+              disabled={isRunning}
+              className="h-7 text-xs"
+            >
+              <Shirt className="w-3 h-3 mr-1.5" />
+              Usar do closet
+            </Button>
+          </div>
+          
+          {selectedClosetItem ? (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/30">
+              <Shirt className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium flex-1">{selectedClosetItem.name}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => {
+                  setSelectedClosetItem(null);
+                  setGarmentUrl('');
+                }}
+              >
+                Limpar
+              </Button>
+            </div>
+          ) : (
+            <input
+              type="url"
+              value={garmentUrl}
+              onChange={(e) => setGarmentUrl(e.target.value)}
+              placeholder="Cole URL da imagem ou selecione do closet"
+              disabled={isRunning}
+              className="w-full px-3 py-2 text-sm rounded-lg bg-secondary/50 border border-border focus:border-primary focus:outline-none disabled:opacity-50"
+            />
+          )}
+          
+          {!garmentUrl && !selectedClosetItem && (
+            <p className="text-[10px] text-muted-foreground">
+              Uma roupa padrão será usada se nenhuma for selecionada
+            </p>
+          )}
         </CardContent>
       </Card>
+
+      {/* Wardrobe Selector Sheet */}
+      <Sheet open={showWardrobeSelector} onOpenChange={setShowWardrobeSelector}>
+        <SheetContent side="bottom" className="h-[70vh]">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Selecionar do Closet</SheetTitle>
+          </SheetHeader>
+          <WardrobeSelector
+            onSelect={(item) => {
+              setGarmentUrl(item.imageUrl);
+              setSelectedClosetItem({ id: item.id, name: item.name || item.category });
+              setShowWardrobeSelector(false);
+              toast.success(`${item.name || item.category} selecionado`);
+            }}
+            selectedId={selectedClosetItem?.id}
+          />
+        </SheetContent>
+      </Sheet>
 
       {/* Avatar Warning */}
       {!avatarImageUrl && (
@@ -414,9 +489,52 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                       🏆 Mais rápido: {getModelInfo(benchmarkSummary.summary.fastestModel).name}
                     </p>
                   )}
-                </CardContent>
-              </Card>
-            )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Comparative Time Chart */}
+          {benchmarkSummary && results.filter(r => r.status === 'success').length > 1 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Comparativo de Tempo
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {results
+                  .filter(r => r.status === 'success')
+                  .sort((a, b) => (a.processingTimeMs || 0) - (b.processingTimeMs || 0))
+                  .map((result, index) => {
+                    const maxTime = Math.max(...results.filter(r => r.status === 'success').map(r => r.processingTimeMs || 0));
+                    const percentage = maxTime > 0 ? ((result.processingTimeMs || 0) / maxTime) * 100 : 0;
+                    const modelInfo = getModelInfo(result.model);
+                    
+                    return (
+                      <div key={result.model} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="flex items-center gap-2">
+                            {index === 0 && <Trophy className="w-3 h-3 text-primary" />}
+                            {modelInfo.name}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {(result.processingTimeMs! / 1000).toFixed(1)}s
+                          </span>
+                        </div>
+                        <Progress 
+                          value={percentage} 
+                          className={cn(
+                            "h-2",
+                            index === 0 && "[&>div]:bg-primary"
+                          )}
+                        />
+                      </div>
+                    );
+                  })}
+              </CardContent>
+            </Card>
+          )}
 
             {/* Results Cards */}
             <div className="grid gap-4">
@@ -505,6 +623,14 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                             <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
                               {result.error || 'Falha desconhecida'}
                             </p>
+                            {/* Rate limit specific message */}
+                            {result.error?.toLowerCase().includes('rate limit') && (
+                              <div className="mt-3 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                                <p className="text-xs text-amber-600 dark:text-amber-400">
+                                  ⏳ Rate limit temporário do Replicate. O sistema tentou retry automático mas o limite persistiu. Tente novamente em alguns segundos.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </CardContent>

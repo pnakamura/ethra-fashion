@@ -19,6 +19,10 @@ interface ModelResult {
 // Timeout for individual model processing (90 seconds)
 const MODEL_TIMEOUT_MS = 90000;
 
+// Retry configuration for rate limits
+const RATE_LIMIT_RETRY_DELAY_MS = 12000; // 12 seconds
+const MAX_RATE_LIMIT_RETRIES = 2;
+
 // Helper to wait between polls
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -39,6 +43,38 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, modelName: string): Pro
         reject(err);
       });
   });
+};
+
+// Wrapper for automatic retry on rate limits (Replicate)
+const withRateLimitRetry = async <T>(
+  fn: () => Promise<T>,
+  modelName: string
+): Promise<T> => {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      const errorMsg = error?.message || String(error);
+      
+      // Check if it's a rate limit error
+      const isRateLimit = errorMsg.includes('Rate limit') || 
+                          errorMsg.includes('429') ||
+                          errorMsg.includes('rate_limit');
+      
+      if (isRateLimit && attempt < MAX_RATE_LIMIT_RETRIES) {
+        console.log(`[${modelName}] Rate limit hit, waiting ${RATE_LIMIT_RETRY_DELAY_MS / 1000}s before retry ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES}...`);
+        await sleep(RATE_LIMIT_RETRY_DELAY_MS);
+        continue;
+      }
+      
+      throw error;
+    }
+  }
+  
+  throw lastError;
 };
 
 // Get specialized prompt for Seedream models
@@ -521,11 +557,14 @@ serve(async (req) => {
       switch (modelName) {
         case "seedream-4.5":
           if (REPLICATE_API_KEY) {
-            // Wrap with timeout - if it takes more than 90s, fail gracefully
+            // Wrap with timeout AND retry logic for rate limits
             promises.push(
               withTimeout(
-                callSeedream45(avatarImageUrl, garmentImageUrl, category, REPLICATE_API_KEY),
-                MODEL_TIMEOUT_MS,
+                withRateLimitRetry(
+                  () => callSeedream45(avatarImageUrl, garmentImageUrl, category, REPLICATE_API_KEY),
+                  "Seedream 4.5"
+                ),
+                MODEL_TIMEOUT_MS + (MAX_RATE_LIMIT_RETRIES * RATE_LIMIT_RETRY_DELAY_MS),
                 "Seedream 4.5"
               ).catch(err => ({
                 model: "seedream-4.5",
@@ -545,10 +584,14 @@ serve(async (req) => {
           break;
         case "seedream-4.0":
           if (REPLICATE_API_KEY) {
+            // Wrap with timeout AND retry logic for rate limits
             promises.push(
               withTimeout(
-                callSeedream40(avatarImageUrl, garmentImageUrl, category, REPLICATE_API_KEY),
-                MODEL_TIMEOUT_MS,
+                withRateLimitRetry(
+                  () => callSeedream40(avatarImageUrl, garmentImageUrl, category, REPLICATE_API_KEY),
+                  "Seedream 4.0"
+                ),
+                MODEL_TIMEOUT_MS + (MAX_RATE_LIMIT_RETRIES * RATE_LIMIT_RETRY_DELAY_MS),
                 "Seedream 4.0"
               ).catch(err => ({
                 model: "seedream-4.0",
