@@ -178,6 +178,130 @@ const getReplicateLatestVersion = async (
 };
 
 // ============================================
+// IDM-VTON via Replicate (Specialized VTO)
+// ============================================
+const callIDMVTON = async (
+  avatarUrl: string,
+  garmentUrl: string,
+  category: string,
+  replicateApiKey: string
+): Promise<ModelResult> => {
+  const startTime = Date.now();
+  const model = "idm-vton";
+
+  try {
+    console.log(`[${model}] Starting...`);
+
+    // Get latest version dynamically
+    const version = await getReplicateLatestVersion("cuuupid/idm-vton", replicateApiKey);
+    if (!version) {
+      throw new Error("Could not resolve model version");
+    }
+
+    // Map category to IDM-VTON expected format
+    const mapCategory = (cat: string): string => {
+      const normalized = (cat || "").toLowerCase();
+      if (["top", "upper_body", "shirt", "blouse", "jacket"].includes(normalized)) return "upper_body";
+      if (["bottom", "lower_body", "pants", "skirt", "shorts"].includes(normalized)) return "lower_body";
+      if (["dress", "dresses", "full_body", "full"].includes(normalized)) return "dresses";
+      return "upper_body";
+    };
+
+    const idmCategory = mapCategory(category);
+    console.log(`[${model}] Category mapped: ${category} -> ${idmCategory}`);
+
+    const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Token ${replicateApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        version,
+        input: {
+          garm_img: garmentUrl,
+          human_img: avatarUrl,
+          category: idmCategory,
+          garment_des: "A fashion garment, focus on natural fabric drape and realistic fit",
+        },
+      }),
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error(`[${model}] Create error:`, createResponse.status, errorText);
+      
+      if (createResponse.status === 429) {
+        throw new Error("Rate limit exceeded");
+      }
+      if (createResponse.status === 402) {
+        throw new Error("Replicate credits exhausted");
+      }
+      throw new Error(`API error: ${createResponse.status}`);
+    }
+
+    const prediction = await createResponse.json();
+    console.log(`[${model}] Prediction created:`, prediction.id);
+
+    // Poll for result (max 2 minutes)
+    const maxAttempts = 60;
+    for (let i = 0; i < maxAttempts; i++) {
+      await sleep(2000);
+
+      const statusResponse = await fetch(
+        `https://api.replicate.com/v1/predictions/${prediction.id}`,
+        {
+          headers: { "Authorization": `Token ${replicateApiKey}` },
+        }
+      );
+
+      if (!statusResponse.ok) continue;
+
+      const status = await statusResponse.json();
+      console.log(`[${model}] Status (${i + 1}/${maxAttempts}):`, status.status);
+
+      if (status.status === "succeeded") {
+        let outputUrl = status.output;
+        if (Array.isArray(status.output)) {
+          outputUrl = status.output[0];
+        }
+
+        if (outputUrl && typeof outputUrl === "string") {
+          return {
+            model,
+            status: "success",
+            resultImageUrl: outputUrl,
+            processingTimeMs: Date.now() - startTime,
+            cost: "$0.05",
+          };
+        }
+        throw new Error("No valid output URL");
+      }
+
+      if (status.status === "failed") {
+        throw new Error(status.error || "Processing failed");
+      }
+
+      if (status.status === "canceled") {
+        throw new Error("Canceled");
+      }
+    }
+
+    throw new Error("Timeout after 2 minutes");
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[${model}] Failed:`, errorMsg);
+    return {
+      model,
+      status: "failed",
+      processingTimeMs: Date.now() - startTime,
+      cost: "$0.00",
+      error: errorMsg,
+    };
+  }
+};
+
+// ============================================
 // Seedream 4.5 via Replicate
 // ============================================
 const callSeedream45 = async (
@@ -418,7 +542,7 @@ const callVertexAI = async (
   category: string
 ): Promise<ModelResult> => {
   const startTime = Date.now();
-  const model = "vertex-ai-imagen";
+  const model = "vertex-ai";
 
   try {
     console.log(`[${model}] Starting...`);
@@ -494,7 +618,7 @@ const callGemini = async (
   lovableApiKey: string
 ): Promise<ModelResult> => {
   const startTime = Date.now();
-  const model = "gemini-3-pro-image-preview";
+  const model = "gemini";
 
   try {
     console.log(`[${model}] Starting...`);
@@ -532,7 +656,7 @@ const callGemini = async (
     const data = await response.json();
     console.log(`[${model}] Response received`);
 
-    // Extract image from response
+    // Extract image from response with enhanced logging
     const extractedUrl = extractImageFromResponse(data);
     
     if (extractedUrl) {
@@ -559,19 +683,37 @@ const callGemini = async (
   }
 };
 
-// Helper to extract image from Lovable AI response
+// Helper to extract image from Lovable AI response with detailed logging
 const extractImageFromResponse = (data: any): string | null => {
+  console.log("[Gemini] Full response structure:", JSON.stringify(data).substring(0, 1500));
+  
   const choice = data.choices?.[0];
   const message = choice?.message;
+  
+  console.log("[Gemini] Message keys:", message ? Object.keys(message) : "no message");
+  console.log("[Gemini] Message content type:", typeof message?.content);
 
   // Format 1: images array
   const imageFromArray = message?.images?.[0]?.image_url?.url;
-  if (imageFromArray) return imageFromArray;
+  if (imageFromArray) {
+    console.log("[Gemini] Found image via images array");
+    return imageFromArray;
+  }
 
   // Format 2: content array with image_url
   if (Array.isArray(message?.content)) {
+    console.log("[Gemini] Content array length:", message.content.length);
     for (const part of message.content) {
+      console.log("[Gemini] Part type:", part.type, "keys:", Object.keys(part));
+      
       if (part.type === "image_url" && part.image_url?.url) {
+        console.log("[Gemini] Found via content image_url type");
+        return part.image_url.url;
+      }
+      
+      // Format: Direct image_url in part
+      if (part.image_url?.url) {
+        console.log("[Gemini] Found via direct part.image_url");
         return part.image_url.url;
       }
     }
@@ -581,12 +723,26 @@ const extractImageFromResponse = (data: any): string | null => {
   if (Array.isArray(message?.content)) {
     for (const part of message.content) {
       if (part.type === "image" && part.inline_data?.data) {
+        console.log("[Gemini] Found via inline_data");
         const mimeType = part.inline_data.mime_type || "image/png";
         return `data:${mimeType};base64,${part.inline_data.data}`;
+      }
+      
+      // Format: Direct data in part
+      if (part.data && typeof part.data === "string" && part.data.length > 100) {
+        console.log("[Gemini] Found via direct part.data (base64)");
+        return `data:image/png;base64,${part.data}`;
       }
     }
   }
 
+  // Format 4: Check if content is a string (sometimes the whole response is base64)
+  if (typeof message?.content === "string" && message.content.startsWith("data:image")) {
+    console.log("[Gemini] Found via string content (data URL)");
+    return message.content;
+  }
+
+  console.log("[Gemini] No image found in any format");
   return null;
 };
 
@@ -619,7 +775,8 @@ serve(async (req) => {
     const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    const allModels = ["seedream-4.5", "seedream-4.0", "gemini", "vertex-ai"];
+    // Include IDM-VTON in the default list
+    const allModels = ["idm-vton", "seedream-4.5", "seedream-4.0", "vertex-ai", "gemini"];
     const modelsToRun = requestedModels || allModels;
 
     console.log("Running models:", modelsToRun);
@@ -630,9 +787,34 @@ serve(async (req) => {
 
     for (const modelName of modelsToRun) {
       switch (modelName) {
+        case "idm-vton":
+          if (REPLICATE_API_KEY) {
+            promises.push(
+              withTimeout(
+                withRateLimitRetry(
+                  () => callIDMVTON(avatarImageUrl, garmentImageUrl, category, REPLICATE_API_KEY),
+                  "IDM-VTON"
+                ),
+                MODEL_TIMEOUT_MS + (MAX_RATE_LIMIT_RETRIES * RATE_LIMIT_RETRY_DELAY_MS),
+                "IDM-VTON"
+              ).catch(err => ({
+                model: "idm-vton",
+                status: "failed" as const,
+                cost: "$0.00",
+                error: err.message,
+              }))
+            );
+          } else {
+            promises.push(Promise.resolve({
+              model: "idm-vton",
+              status: "skipped" as const,
+              cost: "$0.00",
+              error: "REPLICATE_API_KEY not configured",
+            }));
+          }
+          break;
         case "seedream-4.5":
           if (REPLICATE_API_KEY) {
-            // Wrap with timeout AND retry logic for rate limits
             promises.push(
               withTimeout(
                 withRateLimitRetry(
@@ -659,7 +841,6 @@ serve(async (req) => {
           break;
         case "seedream-4.0":
           if (REPLICATE_API_KEY) {
-            // Wrap with timeout AND retry logic for rate limits
             promises.push(
               withTimeout(
                 withRateLimitRetry(
@@ -692,7 +873,7 @@ serve(async (req) => {
                 MODEL_TIMEOUT_MS,
                 "Gemini 3 Pro"
               ).catch(err => ({
-                model: "gemini-3-pro-image-preview",
+                model: "gemini",
                 status: "failed" as const,
                 cost: "$0.00",
                 error: err.message,
@@ -700,7 +881,7 @@ serve(async (req) => {
             );
           } else {
             promises.push(Promise.resolve({
-              model: "gemini-3-pro-image-preview",
+              model: "gemini",
               status: "skipped" as const,
               cost: "$0.00",
               error: "LOVABLE_API_KEY not configured",
@@ -716,7 +897,7 @@ serve(async (req) => {
                 MODEL_TIMEOUT_MS,
                 "Vertex AI"
               ).catch(err => ({
-                model: "vertex-ai-imagen",
+                model: "vertex-ai",
                 status: "failed" as const,
                 cost: "$0.00",
                 error: err.message,
@@ -724,7 +905,7 @@ serve(async (req) => {
             );
           } else {
             promises.push(Promise.resolve({
-              model: "vertex-ai-imagen",
+              model: "vertex-ai",
               status: "skipped" as const,
               cost: "$0.00",
               error: "GOOGLE_APPLICATION_CREDENTIALS_JSON not configured",

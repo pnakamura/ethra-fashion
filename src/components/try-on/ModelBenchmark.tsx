@@ -15,7 +15,8 @@ import {
   StopCircle,
   Shirt,
   Trophy,
-  ExternalLink
+  ExternalLink,
+  DollarSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,6 +61,14 @@ interface BenchmarkResponse {
 
 const BENCHMARK_MODELS: BenchmarkModel[] = [
   {
+    id: 'idm-vton',
+    name: 'IDM-VTON',
+    icon: Sparkles,
+    color: 'text-rose-500 bg-rose-500/10 border-rose-500/30',
+    description: 'Replicate - Especializado VTO',
+    apiProvider: 'replicate'
+  },
+  {
     id: 'seedream-4.5',
     name: 'Seedream 4.5',
     icon: Crown,
@@ -81,14 +90,14 @@ const BENCHMARK_MODELS: BenchmarkModel[] = [
     icon: Crown,
     color: 'text-green-500 bg-green-500/10 border-green-500/30',
     description: 'Google Cloud - Alta fidelidade',
-    apiProvider: 'google-cloud' as any
+    apiProvider: 'google-cloud'
   },
   {
     id: 'gemini',
     name: 'Gemini 3 Pro',
     icon: Zap,
     color: 'text-amber-500 bg-amber-500/10 border-amber-500/30',
-    description: 'Google - Rápido',
+    description: 'Lovable AI - Incluído',
     apiProvider: 'lovable'
   },
 ] as const;
@@ -102,7 +111,7 @@ interface ModelBenchmarkProps {
 }
 
 export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmarkProps) {
-  const [selectedModels, setSelectedModels] = useState<string[]>(['seedream-4.5', 'vertex-ai', 'gemini']);
+  const [selectedModels, setSelectedModels] = useState<string[]>(['idm-vton', 'seedream-4.5', 'vertex-ai', 'gemini']);
   const [garmentUrl, setGarmentUrl] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -237,8 +246,35 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
     setElapsedTime(0);
   };
 
+  // Normalize model IDs from backend to match frontend
   const getModelInfo = (modelId: string) => {
-    return BENCHMARK_MODELS.find(m => m.id === modelId) || BENCHMARK_MODELS[2];
+    // Normalize legacy IDs from backend
+    let normalizedId = modelId;
+    if (modelId === 'vertex-ai-imagen') normalizedId = 'vertex-ai';
+    if (modelId === 'gemini-3-pro-image-preview') normalizedId = 'gemini';
+    
+    const found = BENCHMARK_MODELS.find(m => m.id === normalizedId);
+    if (found) return found;
+    
+    // Safe fallback
+    return {
+      id: modelId,
+      name: modelId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      icon: Zap,
+      color: 'text-gray-500 bg-gray-500/10 border-gray-500/30',
+      description: 'Modelo',
+      apiProvider: 'replicate' as const
+    };
+  };
+
+  // Calculate total cost from results
+  const calculateTotalCost = () => {
+    return results
+      .filter(r => r.status === 'success')
+      .reduce((sum, r) => {
+        const cost = parseFloat((r.cost || '$0.00').replace('$', '').replace(' (included)', ''));
+        return sum + (isNaN(cost) ? 0 : cost);
+      }, 0);
   };
 
   return (
@@ -546,6 +582,97 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
             </Card>
           )}
 
+          {/* Cost Comparison Chart - NEW */}
+          {benchmarkSummary && results.length > 0 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-green-500" />
+                  Comparativo de Custos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Total estimated */}
+                <div className="flex justify-between items-center p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                  <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                    Custo Total do Benchmark
+                  </span>
+                  <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                    ${calculateTotalCost().toFixed(2)}
+                  </span>
+                </div>
+                
+                {/* Cost bars per model */}
+                {results
+                  .filter(r => r.cost && r.status !== 'skipped')
+                  .sort((a, b) => {
+                    const costA = parseFloat((a.cost || '0').replace('$', '').replace(' (included)', ''));
+                    const costB = parseFloat((b.cost || '0').replace('$', '').replace(' (included)', ''));
+                    return costB - costA;
+                  })
+                  .map((result) => {
+                    const modelInfo = getModelInfo(result.model);
+                    const costValue = parseFloat((result.cost || '0').replace('$', '').replace(' (included)', ''));
+                    const maxCost = Math.max(
+                      ...results
+                        .filter(r => r.status !== 'skipped')
+                        .map(r => parseFloat((r.cost || '0').replace('$', '').replace(' (included)', '')))
+                    );
+                    const percentage = maxCost > 0 ? (costValue / maxCost) * 100 : 0;
+                    const isIncluded = result.cost?.includes('included');
+                    const isSuccess = result.status === 'success';
+                    
+                    return (
+                      <div key={result.model} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="flex items-center gap-2">
+                            {modelInfo.name}
+                            {isIncluded && (
+                              <Badge variant="outline" className="text-[9px] px-1 text-green-500 border-green-500/30">
+                                Incluído
+                              </Badge>
+                            )}
+                            {!isSuccess && (
+                              <Badge variant="outline" className="text-[9px] px-1 text-red-500 border-red-500/30">
+                                Falhou
+                              </Badge>
+                            )}
+                          </span>
+                          <span className={cn(
+                            "font-medium",
+                            isIncluded ? "text-green-500" : "text-muted-foreground"
+                          )}>
+                            {result.cost || '$0.00'}
+                          </span>
+                        </div>
+                        <Progress 
+                          value={percentage} 
+                          className={cn(
+                            "h-2",
+                            isIncluded && "[&>div]:bg-green-500",
+                            !isIncluded && isSuccess && "[&>div]:bg-amber-500",
+                            !isSuccess && "[&>div]:bg-red-500/50"
+                          )}
+                        />
+                      </div>
+                    );
+                  })}
+                  
+                {/* Legend */}
+                <div className="flex flex-wrap gap-3 pt-2 border-t border-border/50 text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    Lovable AI (sem custo extra)
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-amber-500" />
+                    APIs externas (custo por uso)
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
             {/* Results Cards */}
             <div className="grid gap-4">
               {results.map((result, index) => {
@@ -553,6 +680,7 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                 const Icon = modelInfo.icon;
                 const isFastest = benchmarkSummary?.summary.fastestModel === result.model;
                 const isSuccess = result.status === "success";
+                const isIncludedCost = result.cost?.includes('included');
                 
                 return (
                   <motion.div
@@ -588,6 +716,21 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                             <Badge variant="outline" className="text-xs">
                               <Clock className="w-3 h-3 mr-1" />
                               {(result.processingTimeMs / 1000).toFixed(1)}s
+                            </Badge>
+                          )}
+                          {/* Cost Badge - NEW */}
+                          {result.cost && (
+                            <Badge 
+                              variant="outline" 
+                              className={cn(
+                                "text-xs",
+                                isIncludedCost 
+                                  ? "text-green-500 border-green-500/30"
+                                  : "text-amber-500 border-amber-500/30"
+                              )}
+                            >
+                              <DollarSign className="w-3 h-3 mr-0.5" />
+                              {result.cost.replace(' (included)', '')}
                             </Badge>
                           )}
                           {!isSuccess && (
