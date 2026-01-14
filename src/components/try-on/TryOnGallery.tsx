@@ -79,37 +79,48 @@ export function TryOnGallery({ onSelectResult, onTryAgainWithGarment }: TryOnGal
         </div>
 
         <div className="grid grid-cols-3 gap-2">
-          {completedResults.map((result, index) => (
-            <motion.button
-              key={result.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.05 }}
-              onClick={() => setSelectedDetail(result)}
-              className="relative aspect-[3/4] rounded-lg overflow-hidden group"
-            >
-              {result.result_image_url ? (
-                <img
-                  src={result.result_image_url}
-                  alt="Try-on result"
-                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                />
-              ) : (
-                <div className="w-full h-full bg-secondary flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-muted-foreground" />
+          {completedResults.map((result, index) => {
+            // Generate thumbnail URL with Supabase transform (smaller size for gallery)
+            const thumbnailUrl = result.result_image_url
+              ? result.result_image_url.includes('supabase.co')
+                ? `${result.result_image_url}?width=200&height=267&resize=cover&quality=70`
+                : result.result_image_url
+              : null;
+            
+            return (
+              <motion.button
+                key={result.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: Math.min(index * 0.03, 0.3) }}
+                onClick={() => setSelectedDetail(result)}
+                className="relative aspect-[3/4] rounded-lg overflow-hidden group bg-secondary"
+              >
+                {thumbnailUrl ? (
+                  <img
+                    src={thumbnailUrl}
+                    alt="Try-on result"
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                )}
+
+                <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                <div className="absolute bottom-1 left-1 right-1 text-[10px] text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                  {formatDistanceToNow(new Date(result.created_at), {
+                    addSuffix: true,
+                    locale: ptBR,
+                  })}
                 </div>
-              )}
-
-              <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
-              <div className="absolute bottom-1 left-1 right-1 text-[10px] text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                {formatDistanceToNow(new Date(result.created_at), {
-                  addSuffix: true,
-                  locale: ptBR,
-                })}
-              </div>
-            </motion.button>
-          ))}
+              </motion.button>
+            );
+          })}
         </div>
       </Card>
 
