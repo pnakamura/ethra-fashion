@@ -107,9 +107,111 @@ serve(async (req) => {
     // Helper to wait between retries (for rate limiting)
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // Virtual try-on prompt template
-    const getTryOnPrompt = (quality: 'fast' | 'balanced' | 'premium') => {
-      const basePrompt = `You are an expert virtual try-on AI creating fashion photography.
+    // ============================================
+    // IDM-VTON via Replicate (specialized model)
+    // ============================================
+    const callIDMVTON = async (): Promise<string | null> => {
+      const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
+      if (!REPLICATE_API_KEY) {
+        console.log("REPLICATE_API_KEY not configured, skipping IDM-VTON");
+        return null;
+      }
+
+      console.log("Calling IDM-VTON via Replicate (specialized try-on model)...");
+      
+      // Determine category for IDM-VTON
+      const idmCategory = category === "upper_body" ? "upper_body" : 
+                          category === "lower_body" ? "lower_body" : 
+                          category === "dresses" ? "dresses" : "upper_body";
+
+      const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Token ${REPLICATE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          version: "c871bb9b046607b680449ecbae55fd8c6d945e0a1948644bf2361b3d021d3ff4",
+          input: {
+            garm_img: garmentImageUrl,
+            human_img: avatarImageUrl,
+            category: idmCategory,
+            garment_des: "A fashion garment item",
+          },
+        }),
+      });
+
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text();
+        console.error("IDM-VTON create error:", createResponse.status, errorText);
+        
+        // Handle rate limiting
+        if (createResponse.status === 429) {
+          const retryAfter = createResponse.headers.get('retry-after');
+          throw new Error(`Rate limit: retry after ${retryAfter || '60'} seconds`);
+        }
+        
+        // Handle billing issues
+        if (createResponse.status === 402) {
+          throw new Error("Replicate credits exhausted");
+        }
+        
+        throw new Error(`IDM-VTON error: ${createResponse.status}`);
+      }
+
+      const prediction = await createResponse.json();
+      console.log("IDM-VTON prediction created:", prediction.id);
+
+      // Poll for result
+      const maxAttempts = 60; // Max 2 minutes
+      for (let i = 0; i < maxAttempts; i++) {
+        await sleep(2000);
+
+        const statusResponse = await fetch(
+          `https://api.replicate.com/v1/predictions/${prediction.id}`,
+          {
+            headers: {
+              "Authorization": `Token ${REPLICATE_API_KEY}`,
+            },
+          }
+        );
+
+        if (!statusResponse.ok) {
+          console.error("IDM-VTON status check failed:", statusResponse.status);
+          continue;
+        }
+
+        const status = await statusResponse.json();
+        console.log(`IDM-VTON status (${i + 1}/${maxAttempts}):`, status.status);
+
+        if (status.status === "succeeded") {
+          const outputUrl = status.output;
+          if (outputUrl) {
+            console.log("IDM-VTON succeeded with output:", outputUrl);
+            return outputUrl;
+          }
+          console.log("IDM-VTON succeeded but no output URL");
+          return null;
+        }
+
+        if (status.status === "failed") {
+          console.error("IDM-VTON failed:", status.error);
+          throw new Error(`IDM-VTON failed: ${status.error || 'Unknown error'}`);
+        }
+
+        if (status.status === "canceled") {
+          throw new Error("IDM-VTON was canceled");
+        }
+      }
+
+      throw new Error("IDM-VTON timeout after 2 minutes");
+    };
+
+    // ============================================
+    // Gemini 3 Pro Image Preview (fallback)
+    // ============================================
+    const getTryOnPrompt = () => {
+      return `You are an expert virtual try-on AI creating fashion photography.
 
 TASK: Seamlessly dress the person in the FIRST image with the garment from the SECOND image.
 
@@ -121,115 +223,16 @@ ABSOLUTE REQUIREMENTS:
 5. NATURAL FIT: The garment should look naturally worn, not pasted on
 6. PHOTOREALISTIC: Professional fashion photography quality
 
-CRITICAL: Output a SINGLE image with VERTICAL orientation matching the input person photo.`;
-
-      if (quality === 'premium') {
-        return basePrompt + `
-
 PREMIUM QUALITY REQUIREMENTS:
 - Ultra-high resolution output
 - Perfect fabric texture and draping
 - Accurate lighting and shadows
 - Flawless blend between garment and body
-- Studio-quality fashion photography finish`;
-      }
-      
-      if (quality === 'balanced') {
-        return basePrompt + `
+- Studio-quality fashion photography finish
 
-QUALITY REQUIREMENTS:
-- High resolution output
-- Good fabric texture rendering
-- Natural lighting integration
-- Professional photography quality`;
-      }
-
-      return basePrompt;
+CRITICAL: Output a SINGLE image with VERTICAL orientation matching the input person photo.`;
     };
 
-    // Gemini 2.5 Flash (fast, first attempt)
-    const callGeminiFlash = async (): Promise<string | null> => {
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (!LOVABLE_API_KEY) {
-        console.log("LOVABLE_API_KEY not configured, skipping Gemini Flash");
-        return null;
-      }
-
-      console.log("Calling Gemini 2.5 Flash (fast model)...");
-
-      const response = await fetch(LOVABLE_AI_GATEWAY, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: getTryOnPrompt('fast') },
-                { type: "image_url", image_url: { url: avatarImageUrl } },
-                { type: "image_url", image_url: { url: garmentImageUrl } },
-              ],
-            },
-          ],
-          modalities: ["image", "text"],
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Gemini Flash error:", response.status, errorText);
-        throw new Error(`Gemini Flash error: ${response.status}`);
-      }
-
-      return extractImageFromResponse(await response.json(), "Gemini Flash");
-    };
-
-    // Gemini 2.5 Pro (balanced, second attempt)
-    const callGeminiPro = async (): Promise<string | null> => {
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (!LOVABLE_API_KEY) {
-        console.log("LOVABLE_API_KEY not configured, skipping Gemini Pro");
-        return null;
-      }
-
-      console.log("Calling Gemini 2.5 Pro (balanced model)...");
-
-      const response = await fetch(LOVABLE_AI_GATEWAY, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: getTryOnPrompt('balanced') },
-                { type: "image_url", image_url: { url: avatarImageUrl } },
-                { type: "image_url", image_url: { url: garmentImageUrl } },
-              ],
-            },
-          ],
-          modalities: ["image", "text"],
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Gemini Pro error:", response.status, errorText);
-        throw new Error(`Gemini Pro error: ${response.status}`);
-      }
-
-      return extractImageFromResponse(await response.json(), "Gemini Pro");
-    };
-
-    // Gemini 3 Pro Image Preview (premium, third attempt)
     const callGeminiPremium = async (): Promise<string | null> => {
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       if (!LOVABLE_API_KEY) {
@@ -237,7 +240,7 @@ QUALITY REQUIREMENTS:
         return null;
       }
 
-      console.log("Calling Gemini 3 Pro Image Preview (premium model)...");
+      console.log("Calling Gemini 3 Pro Image Preview (fallback model)...");
 
       const response = await fetch(LOVABLE_AI_GATEWAY, {
         method: "POST",
@@ -251,7 +254,7 @@ QUALITY REQUIREMENTS:
             {
               role: "user",
               content: [
-                { type: "text", text: getTryOnPrompt('premium') },
+                { type: "text", text: getTryOnPrompt() },
                 { type: "image_url", image_url: { url: avatarImageUrl } },
                 { type: "image_url", image_url: { url: garmentImageUrl } },
               ],
@@ -310,63 +313,55 @@ QUALITY REQUIREMENTS:
       return null;
     };
 
-    // Get target model based on retry count
-    const getTargetModel = (retry: number): 'flash' | 'pro' | 'premium' => {
-      switch (retry) {
-        case 0: return 'flash';
-        case 1: return 'pro';
-        case 2:
-        default: return 'premium';
-      }
-    };
-
-    const targetModel = getTargetModel(retryCount);
-    console.log(`Target model for retry ${retryCount}: ${targetModel}`);
-
     try {
       let output: string | null = null;
       let usedModel = 'unknown';
 
-      // Progressive model escalation with cascading fallback
+      // ============================================
+      // Model selection strategy:
+      // - First attempt (retryCount=0): IDM-VTON (specialized)
+      // - Retry attempts (retryCount>0): Gemini Premium (fallback)
+      // - Automatic fallback if IDM-VTON fails
+      // ============================================
+      
       const tryWithCascadingFallback = async () => {
-        // Determine starting point based on retryCount
-        const modelsToTry: Array<{ name: string; fn: () => Promise<string | null>; label: string }> = [];
-
-        if (targetModel === 'flash') {
-          modelsToTry.push(
-            { name: 'gemini-2.5-flash', fn: callGeminiFlash, label: 'Flash' },
-            { name: 'gemini-2.5-pro', fn: callGeminiPro, label: 'Pro' },
-            { name: 'gemini-3-pro-image-preview', fn: callGeminiPremium, label: 'Premium' }
-          );
-        } else if (targetModel === 'pro') {
-          modelsToTry.push(
-            { name: 'gemini-2.5-pro', fn: callGeminiPro, label: 'Pro' },
-            { name: 'gemini-3-pro-image-preview', fn: callGeminiPremium, label: 'Premium' }
-          );
-        } else {
-          modelsToTry.push(
-            { name: 'gemini-3-pro-image-preview', fn: callGeminiPremium, label: 'Premium' }
-          );
-        }
-
-        for (const model of modelsToTry) {
+        // First attempt: try IDM-VTON (specialized model)
+        if (retryCount === 0) {
           try {
-            console.log(`Trying ${model.name}...`);
-            const result = await model.fn();
-            if (result) {
-              output = result;
-              usedModel = model.name;
-              console.log(`${model.name} succeeded!`);
+            console.log("Attempt 1: Trying IDM-VTON (specialized model)...");
+            const idmResult = await callIDMVTON();
+            if (idmResult) {
+              output = idmResult;
+              usedModel = 'IDM-VTON';
+              console.log("IDM-VTON succeeded!");
               return;
             }
-            console.log(`${model.name} returned null, trying next...`);
+            console.log("IDM-VTON returned null, falling back to Gemini...");
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
-            console.log(`${model.name} failed: ${errorMsg}`);
+            console.log(`IDM-VTON failed: ${errorMsg}, falling back to Gemini...`);
             
-            // Add delay before trying next model
-            await sleep(1000);
+            // If rate limited, wait before fallback
+            if (errorMsg.includes("Rate limit")) {
+              await sleep(5000);
+            }
           }
+        }
+
+        // Fallback or retry: use Gemini Premium
+        console.log("Using Gemini 3 Pro Image Preview...");
+        try {
+          const geminiResult = await callGeminiPremium();
+          if (geminiResult) {
+            output = geminiResult;
+            usedModel = 'gemini-3-pro-image-preview';
+            console.log("Gemini Premium succeeded!");
+            return;
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.error(`Gemini Premium failed: ${errorMsg}`);
+          throw error;
         }
       };
 
@@ -413,7 +408,7 @@ QUALITY REQUIREMENTS:
       
       // Provide user-friendly error messages
       let userMessage = "Falha ao processar prova virtual.";
-      const isRateLimit = errorMsg.includes("429") || errorMsg.includes("Too Many Requests") || errorMsg.includes("rate limit");
+      const isRateLimit = errorMsg.includes("429") || errorMsg.includes("Too Many Requests") || errorMsg.includes("rate limit") || errorMsg.includes("Rate limit");
 
       if (errorMsg.includes("Failed to process") || errorMsg.includes("Nenhum modelo")) {
         userMessage = "Não foi possível processar a imagem. Use uma foto de corpo inteiro com boa iluminação e fundo simples.";
@@ -423,6 +418,8 @@ QUALITY REQUIREMENTS:
         userMessage = "Limite de requisições atingido. Aguarde alguns segundos e tente novamente.";
       } else if (errorMsg.includes("imagem")) {
         userMessage = errorMsg; // Already a user-friendly message from validation
+      } else if (errorMsg.includes("IDM-VTON failed")) {
+        userMessage = "O modelo especializado não conseguiu processar. Tente novamente para usar o modelo alternativo.";
       }
       
       // Update status to failed (skip for demo mode)
