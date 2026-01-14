@@ -90,6 +90,35 @@ These must be PIXEL-PERFECT identical to input:
 - No text, watermarks, or artifacts`;
 };
 
+// Helper to get latest model version from Replicate
+const getReplicateLatestVersion = async (
+  modelOwnerAndName: string,
+  replicateApiKey: string
+): Promise<string | null> => {
+  try {
+    console.log(`[Replicate] Fetching latest version for ${modelOwnerAndName}...`);
+    const response = await fetch(
+      `https://api.replicate.com/v1/models/${modelOwnerAndName}`,
+      {
+        headers: { "Authorization": `Token ${replicateApiKey}` }
+      }
+    );
+    
+    if (!response.ok) {
+      console.error(`[Replicate] Failed to get model info: ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    const version = data.latest_version?.id;
+    console.log(`[Replicate] Resolved version: ${version?.substring(0, 12)}...`);
+    return version || null;
+  } catch (error) {
+    console.error(`[Replicate] Error fetching model version:`, error);
+    return null;
+  }
+};
+
 // ============================================
 // Seedream 4.5 via Replicate
 // ============================================
@@ -105,6 +134,12 @@ const callSeedream45 = async (
   try {
     console.log(`[${model}] Starting...`);
 
+    // Get latest version dynamically
+    const version = await getReplicateLatestVersion("bytedance/seedream-4.5", replicateApiKey);
+    if (!version) {
+      throw new Error("Could not resolve model version");
+    }
+
     const prompt = getSeedreamPrompt(category);
 
     const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
@@ -114,13 +149,13 @@ const callSeedream45 = async (
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "bytedance/seedream-4.5",
+        version: version,
         input: {
           prompt: prompt,
           image_input: [avatarUrl, garmentUrl],
           size: "custom",
-          width: 768,
-          height: 1024,
+          width: 1024,
+          height: 1365,
           aspect_ratio: "3:4",
         },
       }),
@@ -215,6 +250,12 @@ const callSeedream40 = async (
   try {
     console.log(`[${model}] Starting...`);
 
+    // Get latest version dynamically
+    const version = await getReplicateLatestVersion("bytedance/seedream-4", replicateApiKey);
+    if (!version) {
+      throw new Error("Could not resolve model version");
+    }
+
     const prompt = getSeedreamPrompt(category);
 
     const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
@@ -224,13 +265,13 @@ const callSeedream40 = async (
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "bytedance/seedream-4",
+        version: version,
         input: {
           prompt: prompt,
           image_input: [avatarUrl, garmentUrl],
           size: "custom",
-          width: 768,
-          height: 1024,
+          width: 1024,
+          height: 1365,
           aspect_ratio: "3:4",
         },
       }),
