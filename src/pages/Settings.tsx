@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Sun, Moon, Monitor, Type, Bell, MapPin, Clock, 
   LogOut, CreditCard, User, ChevronRight, Sparkles,
-  Calendar, CloudSun, Image, EyeOff, Palette
+  Calendar, CloudSun, Image, EyeOff, Palette, Upload, Trash2, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +45,7 @@ const fontSizeOptions: { value: FontSize; label: string; sample: string }[] = [
 const backgroundOptions: { value: BackgroundVariant; label: string; icon: React.ComponentType<any> }[] = [
   { value: 'abstract', label: 'Abstrato', icon: Palette },
   { value: 'portrait', label: 'Retrato', icon: Image },
+  { value: 'custom', label: 'Personalizado', icon: Upload },
   { value: 'none', label: 'Desativado', icon: EyeOff },
 ];
 
@@ -52,8 +53,16 @@ export default function Settings() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { fontSize, setFontSize, themePreference, setThemePreference } = useAccessibility();
-  const { settings: bgSettings, setVariant, setOpacity } = useBackgroundSettings();
+  const { 
+    settings: bgSettings, 
+    setVariant, 
+    setOpacity, 
+    uploadCustomBackground, 
+    deleteCustomBackground,
+    isUploading 
+  } = useBackgroundSettings();
 
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>({
     look_of_day_enabled: true,
@@ -222,30 +231,124 @@ export default function Settings() {
                   Fundo Artístico
                   <span className="text-xs text-muted-foreground/70">(modo escuro)</span>
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   {backgroundOptions.map((option) => {
                     const Icon = option.icon;
                     const isSelected = bgSettings.variant === option.value;
+                    const isCustom = option.value === 'custom';
+                    const hasCustomImage = !!bgSettings.customImageUrl;
+                    
                     return (
                       <motion.button
                         key={option.value}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setVariant(option.value)}
-                        className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${
+                        onClick={() => {
+                          if (isCustom && !hasCustomImage) {
+                            // Trigger file input
+                            fileInputRef.current?.click();
+                          } else {
+                            setVariant(option.value);
+                          }
+                        }}
+                        className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
                           isSelected
                             ? 'border-primary bg-primary/5 dark:neon-border dark:bg-primary/10'
                             : 'border-border hover:border-primary/30'
                         }`}
                       >
-                        <Icon className={`w-6 h-6 ${isSelected ? 'text-primary dark:neon-text-gold' : 'text-muted-foreground'}`} />
-                        <span className={`text-sm font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <Icon className={`w-5 h-5 ${isSelected ? 'text-primary dark:neon-text-gold' : 'text-muted-foreground'}`} />
+                        <span className={`text-xs font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
                           {option.label}
                         </span>
                       </motion.button>
                     );
                   })}
                 </div>
+                
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 5 * 1024 * 1024) {
+                        toast.error('Imagem muito grande. Máximo 5MB.');
+                        return;
+                      }
+                      const result = await uploadCustomBackground(file);
+                      if (result) {
+                        toast.success('Fundo personalizado salvo!');
+                      } else {
+                        toast.error('Erro ao enviar imagem');
+                      }
+                    }
+                    e.target.value = '';
+                  }}
+                />
+                
+                {/* Custom background preview & actions */}
+                {bgSettings.variant === 'custom' && bgSettings.customImageUrl && (
+                  <div className="space-y-3 pt-2">
+                    <div className="relative rounded-xl overflow-hidden aspect-video border border-border">
+                      <img 
+                        src={bgSettings.customImageUrl} 
+                        alt="Fundo personalizado" 
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+                      <div className="absolute bottom-2 left-2 right-2 flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploading}
+                          className="flex-1 text-xs bg-background/80 backdrop-blur-sm"
+                        >
+                          {isUploading ? (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          ) : (
+                            <Upload className="w-3 h-3 mr-1" />
+                          )}
+                          Trocar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            await deleteCustomBackground();
+                            toast.success('Fundo personalizado removido');
+                          }}
+                          className="text-xs bg-background/80 backdrop-blur-sm text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Sua imagem personalizada de fundo
+                    </p>
+                  </div>
+                )}
+                
+                {/* Upload prompt when custom is selected but no image */}
+                {bgSettings.variant === 'custom' && !bgSettings.customImageUrl && (
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-6 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors text-center"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="w-8 h-8 mx-auto mb-2 text-primary animate-spin" />
+                    ) : (
+                      <Upload className="w-8 h-8 mx-auto mb-2 text-primary" />
+                    )}
+                    <p className="text-sm font-medium">Clique para enviar imagem</p>
+                    <p className="text-xs text-muted-foreground mt-1">PNG, JPG até 5MB</p>
+                  </div>
+                )}
                 
                 {/* Opacity Slider */}
                 {bgSettings.variant !== 'none' && (
