@@ -119,10 +119,23 @@ serve(async (req) => {
 
       console.log("Calling IDM-VTON via Replicate (specialized try-on model)...");
 
-      // Determine category for IDM-VTON
-      const idmCategory = category === "upper_body" ? "upper_body" :
-        category === "lower_body" ? "lower_body" :
-        category === "dresses" ? "dresses" : "upper_body";
+      // Map various category inputs to IDM-VTON expected values
+      const mapToIdmCategory = (cat: string): string => {
+        const normalized = (cat || "").toLowerCase().trim();
+        if (["top", "tops", "upper_body", "upper", "shirt", "blouse", "jacket", "coat", "sweater"].includes(normalized)) {
+          return "upper_body";
+        }
+        if (["bottom", "bottoms", "lower_body", "lower", "pants", "skirt", "shorts", "jeans"].includes(normalized)) {
+          return "lower_body";
+        }
+        if (["dress", "dresses", "full_body", "jumpsuit", "romper", "overalls"].includes(normalized)) {
+          return "dresses";
+        }
+        return "upper_body"; // Safe fallback
+      };
+
+      const idmCategory = mapToIdmCategory(category);
+      console.log(`IDM-VTON category mapping: "${category}" -> "${idmCategory}"`);
 
       // Always resolve the latest Replicate version at runtime (older pinned versions can break)
       let idmVersion = "c871bb9b046607b680449ecbae55fd8c6d945e0a1948644bf2361b3d021d3ff4";
@@ -147,87 +160,131 @@ serve(async (req) => {
         console.warn("Failed to resolve IDM-VTON latest version, using pinned version.");
       }
 
-      const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Token ${REPLICATE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          version: idmVersion,
-          input: {
-            garm_img: garmentImageUrl,
-            human_img: avatarImageUrl,
-            category: idmCategory,
-            garment_des: "A fashion garment item",
+      // Helper function to attempt IDM-VTON with a specific category
+      const attemptIdmWithCategory = async (categoryToUse: string): Promise<string | null> => {
+        console.log(`Attempting IDM-VTON with category: ${categoryToUse}`);
+        
+        const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Token ${REPLICATE_API_KEY}`,
+            "Content-Type": "application/json",
           },
-        }),
-      });
-
-      if (!createResponse.ok) {
-        const errorText = await createResponse.text();
-        console.error("IDM-VTON create error:", createResponse.status, errorText);
-        
-        // Handle rate limiting
-        if (createResponse.status === 429) {
-          const retryAfter = createResponse.headers.get('retry-after');
-          throw new Error(`Rate limit: retry after ${retryAfter || '60'} seconds`);
-        }
-        
-        // Handle billing issues
-        if (createResponse.status === 402) {
-          throw new Error("Replicate credits exhausted");
-        }
-        
-        throw new Error(`IDM-VTON error: ${createResponse.status}`);
-      }
-
-      const prediction = await createResponse.json();
-      console.log("IDM-VTON prediction created:", prediction.id);
-
-      // Poll for result
-      const maxAttempts = 60; // Max 2 minutes
-      for (let i = 0; i < maxAttempts; i++) {
-        await sleep(2000);
-
-        const statusResponse = await fetch(
-          `https://api.replicate.com/v1/predictions/${prediction.id}`,
-          {
-            headers: {
-              "Authorization": `Token ${REPLICATE_API_KEY}`,
+          body: JSON.stringify({
+            version: idmVersion,
+            input: {
+              garm_img: garmentImageUrl,
+              human_img: avatarImageUrl,
+              category: categoryToUse,
+              garment_des: "A fashion garment item",
             },
+          }),
+        });
+
+        if (!createResponse.ok) {
+          const errorText = await createResponse.text();
+          console.error("IDM-VTON create error:", createResponse.status, errorText);
+          
+          // Handle rate limiting
+          if (createResponse.status === 429) {
+            const retryAfter = createResponse.headers.get('retry-after');
+            throw new Error(`Rate limit: retry after ${retryAfter || '60'} seconds`);
           }
-        );
-
-        if (!statusResponse.ok) {
-          console.error("IDM-VTON status check failed:", statusResponse.status);
-          continue;
-        }
-
-        const status = await statusResponse.json();
-        console.log(`IDM-VTON status (${i + 1}/${maxAttempts}):`, status.status);
-
-        if (status.status === "succeeded") {
-          const outputUrl = status.output;
-          if (outputUrl) {
-            console.log("IDM-VTON succeeded with output:", outputUrl);
-            return outputUrl;
+          
+          // Handle billing issues
+          if (createResponse.status === 402) {
+            throw new Error("Replicate credits exhausted");
           }
-          console.log("IDM-VTON succeeded but no output URL");
-          return null;
+          
+          throw new Error(`IDM-VTON error: ${createResponse.status}`);
         }
 
-        if (status.status === "failed") {
-          console.error("IDM-VTON failed:", status.error);
-          throw new Error(`IDM-VTON failed: ${status.error || 'Unknown error'}`);
+        const prediction = await createResponse.json();
+        console.log("IDM-VTON prediction created:", prediction.id);
+
+        // Poll for result
+        const maxAttempts = 60; // Max 2 minutes
+        for (let i = 0; i < maxAttempts; i++) {
+          await sleep(2000);
+
+          const statusResponse = await fetch(
+            `https://api.replicate.com/v1/predictions/${prediction.id}`,
+            {
+              headers: {
+                "Authorization": `Token ${REPLICATE_API_KEY}`,
+              },
+            }
+          );
+
+          if (!statusResponse.ok) {
+            console.error("IDM-VTON status check failed:", statusResponse.status);
+            continue;
+          }
+
+          const status = await statusResponse.json();
+          console.log(`IDM-VTON status (${i + 1}/${maxAttempts}):`, status.status);
+
+          if (status.status === "succeeded") {
+            // Handle output as string or array
+            let outputUrl = status.output;
+            if (Array.isArray(status.output)) {
+              outputUrl = status.output[0];
+              console.log("IDM-VTON returned array output, using first element");
+            }
+            
+            if (outputUrl && typeof outputUrl === "string") {
+              console.log("IDM-VTON succeeded with output:", outputUrl);
+              return outputUrl;
+            }
+            console.log("IDM-VTON succeeded but no valid output URL, output was:", status.output);
+            return null;
+          }
+
+          if (status.status === "failed") {
+            const errorDetail = status.error || 'Unknown error';
+            console.error("IDM-VTON failed with error:", errorDetail);
+            throw new Error(`IDM-VTON failed: ${errorDetail}`);
+          }
+
+          if (status.status === "canceled") {
+            throw new Error("IDM-VTON was canceled");
+          }
         }
 
-        if (status.status === "canceled") {
-          throw new Error("IDM-VTON was canceled");
+        throw new Error("IDM-VTON timeout after 2 minutes");
+      };
+
+      // Try primary category first, then fallback to alternative if it fails
+      try {
+        const result = await attemptIdmWithCategory(idmCategory);
+        if (result) return result;
+      } catch (primaryError) {
+        const errorMsg = primaryError instanceof Error ? primaryError.message : String(primaryError);
+        console.log(`Primary category "${idmCategory}" failed: ${errorMsg}`);
+        
+        // Don't retry on rate limits or billing issues
+        if (errorMsg.includes("Rate limit") || errorMsg.includes("credits")) {
+          throw primaryError;
+        }
+        
+        // Try alternative category as fallback
+        const alternativeCategory = idmCategory === "upper_body" ? "dresses" : 
+                                     idmCategory === "lower_body" ? "upper_body" : 
+                                     "upper_body";
+        
+        if (alternativeCategory !== idmCategory) {
+          console.log(`Retrying with alternative category: ${alternativeCategory}`);
+          try {
+            const altResult = await attemptIdmWithCategory(alternativeCategory);
+            if (altResult) return altResult;
+          } catch (altError) {
+            console.log(`Alternative category also failed: ${altError instanceof Error ? altError.message : altError}`);
+          }
         }
       }
-
-      throw new Error("IDM-VTON timeout after 2 minutes");
+      
+      console.log("IDM-VTON: All category attempts exhausted, returning null");
+      return null;
     };
 
     // ============================================
@@ -238,22 +295,42 @@ serve(async (req) => {
 
 TASK: Seamlessly dress the person in the FIRST image with the garment from the SECOND image.
 
-ABSOLUTE REQUIREMENTS:
-1. OUTPUT MUST BE VERTICAL (PORTRAIT) - Same orientation as the person photo
-2. FULL BODY: Show complete person HEAD TO FEET - never crop head or face
-3. EXACT ASPECT RATIO: Match the first image dimensions precisely
-4. PRESERVE IDENTITY: Keep face, hair, skin tone, body shape, pose unchanged
-5. NATURAL FIT: The garment should look naturally worn, not pasted on
-6. PHOTOREALISTIC: Professional fashion photography quality
+===== CRITICAL BODY PROPORTION RULES (MUST FOLLOW) =====
+- DO NOT widen, stretch, or compress the body in ANY way
+- DO NOT shorten the legs or torso
+- DO NOT change the width-to-height ratio of the person
+- The person's body proportions must be PIXEL-PERFECT identical to the input
+- If the input person is slim, the output person must be equally slim
+- If the input person is tall, the output person must be equally tall
+- NEVER make the body look squashed, flattened, or widened
 
-PREMIUM QUALITY REQUIREMENTS:
-- Ultra-high resolution output
-- Perfect fabric texture and draping
-- Accurate lighting and shadows
-- Flawless blend between garment and body
-- Studio-quality fashion photography finish
+===== ASPECT RATIO LOCK (MANDATORY) =====
+- Input image aspect ratio MUST EXACTLY equal output aspect ratio
+- If input is 3:4 portrait (width < height), output MUST be 3:4 portrait
+- NEVER output a square or landscape image from a portrait input
+- Output dimensions should match input dimensions as closely as possible
 
-CRITICAL: Output a SINGLE image with VERTICAL orientation matching the input person photo.`;
+===== IDENTITY PRESERVATION =====
+1. EXACT same face, hair color, hairstyle, skin tone - unchanged
+2. EXACT same body shape, weight, and proportions - unchanged  
+3. EXACT same pose, arm positions, leg positions - unchanged
+4. EXACT same background and lighting conditions - unchanged
+5. The person should look 100% recognizable as the same individual
+
+===== GARMENT APPLICATION =====
+- Replace ONLY the garment while preserving everything else
+- The garment should drape naturally on the body
+- Maintain realistic fabric texture, wrinkles, and shadows
+- The fit should look natural, not pasted or floating
+
+===== OUTPUT REQUIREMENTS =====
+- Single photorealistic image
+- VERTICAL (portrait) orientation matching input
+- Full body visible from head to feet
+- Professional fashion photography quality
+- No cropping of head, face, or feet
+
+CRITICAL: The output person must have IDENTICAL body proportions to the input. Any distortion is unacceptable.`;
     };
 
     const callGeminiPremium = async (): Promise<string | null> => {

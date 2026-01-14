@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+import { prepareAvatarForTryOn, prepareGarmentForTryOn } from '@/lib/image-preprocessing';
 
 interface TryOnResult {
   id: string;
@@ -218,6 +219,28 @@ export function useVirtualTryOn() {
     },
   });
 
+  // Upload preprocessed image to temporary storage
+  const uploadTempImage = async (blob: Blob, prefix: string): Promise<string> => {
+    if (!user) throw new Error('Not authenticated');
+    
+    const fileName = `temp/${user.id}/${prefix}-${Date.now()}.jpg`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, blob, { 
+        contentType: 'image/jpeg',
+        upsert: true 
+      });
+
+    if (uploadError) {
+      console.error('Temp image upload error:', uploadError);
+      throw new Error('Falha ao preparar imagem');
+    }
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+    return data.publicUrl;
+  };
+
   // Start virtual try-on
   const startTryOnMutation = useMutation({
     mutationFn: async ({
@@ -238,6 +261,30 @@ export function useVirtualTryOn() {
 
       setIsProcessing(true);
 
+      // Preprocess images for better model success rate
+      let processedAvatarUrl = primaryAvatar.image_url;
+      let processedGarmentUrl = garmentImageUrl;
+
+      try {
+        console.log('Preprocessing avatar image...');
+        const avatarBlob = await prepareAvatarForTryOn(primaryAvatar.image_url);
+        processedAvatarUrl = await uploadTempImage(avatarBlob, 'avatar');
+        console.log('Avatar preprocessed and uploaded:', processedAvatarUrl);
+      } catch (preprocessError) {
+        console.warn('Avatar preprocessing failed, using original:', preprocessError);
+        // Continue with original image if preprocessing fails
+      }
+
+      try {
+        console.log('Preprocessing garment image...');
+        const garmentBlob = await prepareGarmentForTryOn(garmentImageUrl);
+        processedGarmentUrl = await uploadTempImage(garmentBlob, 'garment');
+        console.log('Garment preprocessed and uploaded:', processedGarmentUrl);
+      } catch (preprocessError) {
+        console.warn('Garment preprocessing failed, using original:', preprocessError);
+        // Continue with original image if preprocessing fails
+      }
+
       // Create a pending try-on result
       const { data: tryOnResult, error: insertError } = await supabase
         .from('try_on_results')
@@ -255,11 +302,11 @@ export function useVirtualTryOn() {
 
       if (insertError) throw insertError;
 
-      // Call the edge function with retryCount
+      // Call the edge function with preprocessed images
       const response = await supabase.functions.invoke('virtual-try-on', {
         body: {
-          avatarImageUrl: primaryAvatar.image_url,
-          garmentImageUrl,
+          avatarImageUrl: processedAvatarUrl,
+          garmentImageUrl: processedGarmentUrl,
           category: category || 'upper_body',
           tryOnResultId: tryOnResult.id,
           retryCount,
