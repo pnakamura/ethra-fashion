@@ -34,70 +34,73 @@ export function TryOnDetailModal({
   onDelete,
   onTryAgain,
 }: TryOnDetailModalProps) {
-  const [imageRotation, setImageRotation] = useState(0);
+  const [correctedImage, setCorrectedImage] = useState<string | null>(null);
+  const [isCorrectingImage, setIsCorrectingImage] = useState(false);
 
-  // Detect and correct orientation
+  // Correct image orientation using Canvas API (real correction, not CSS transform)
   useEffect(() => {
     if (result?.result_image_url) {
+      setIsCorrectingImage(true);
+      setCorrectedImage(null);
+      
       const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
       img.onload = () => {
+        // If image is landscape (wider than tall by 20%), rotate via Canvas
         if (img.width > img.height * 1.2) {
-          setImageRotation(90);
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            if (ctx) {
+              canvas.width = img.height;
+              canvas.height = img.width;
+              
+              ctx.translate(canvas.width / 2, canvas.height / 2);
+              ctx.rotate((90 * Math.PI) / 180);
+              ctx.drawImage(img, -img.width / 2, -img.height / 2);
+              
+              setCorrectedImage(canvas.toDataURL('image/jpeg', 0.92));
+            } else {
+              setCorrectedImage(result.result_image_url);
+            }
+          } catch (err) {
+            console.error('Canvas correction failed:', err);
+            setCorrectedImage(result.result_image_url);
+          }
         } else {
-          setImageRotation(0);
+          setCorrectedImage(result.result_image_url);
         }
+        setIsCorrectingImage(false);
       };
+      
+      img.onerror = () => {
+        setCorrectedImage(result.result_image_url);
+        setIsCorrectingImage(false);
+      };
+      
       img.src = result.result_image_url;
     } else {
-      setImageRotation(0);
+      setCorrectedImage(null);
+      setIsCorrectingImage(false);
     }
   }, [result?.result_image_url]);
 
   const handleDownload = async () => {
-    if (!result?.result_image_url) return;
+    const imageToDownload = correctedImage || result?.result_image_url;
+    if (!imageToDownload) return;
 
     try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = result.result_image_url;
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-
-      if (imageRotation !== 0) {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d')!;
-
-        canvas.width = img.height;
-        canvas.height = img.width;
-
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate((imageRotation * Math.PI) / 180);
-        ctx.drawImage(img, -img.width / 2, -img.height / 2);
-
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `try-on-${Date.now()}.png`;
-            a.click();
-            URL.revokeObjectURL(url);
-            toast.success('Imagem salva!');
-          }
-        }, 'image/png');
-      } else {
-        const response = await fetch(result.result_image_url);
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `try-on-${Date.now()}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast.success('Imagem salva!');
-      }
+      const response = await fetch(imageToDownload);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `try-on-${Date.now()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Imagem salva!');
     } catch (error) {
       console.error('Download error:', error);
       toast.error('Erro ao baixar imagem');
@@ -150,29 +153,34 @@ export function TryOnDetailModal({
           <X className="w-4 h-4" />
         </button>
 
-        {/* Main Image */}
+        {/* Main Image - Fluid container for correct proportions */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="relative aspect-[3/4] bg-secondary"
+          className="relative bg-secondary min-h-[300px]"
         >
-          {result?.result_image_url ? (
+          {isCorrectingImage ? (
+            <div className="flex items-center justify-center py-20">
+              <p className="text-sm text-muted-foreground animate-pulse">
+                Otimizando imagem...
+              </p>
+            </div>
+          ) : correctedImage ? (
+            <img
+              src={correctedImage}
+              alt="Resultado da prova virtual"
+              className="w-full h-auto block max-h-[70vh]"
+              style={{ objectFit: 'contain' }}
+            />
+          ) : result?.result_image_url ? (
             <img
               src={result.result_image_url}
               alt="Resultado da prova virtual"
-              className="w-full h-full object-contain"
-              style={
-                imageRotation
-                  ? {
-                      transform: `rotate(${imageRotation}deg)`,
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                    }
-                  : undefined
-              }
+              className="w-full h-auto block max-h-[70vh]"
+              style={{ objectFit: 'contain' }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
+            <div className="flex items-center justify-center py-20">
               <Clock className="w-12 h-12 text-muted-foreground" />
             </div>
           )}

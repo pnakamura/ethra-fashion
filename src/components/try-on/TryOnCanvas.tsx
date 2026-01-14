@@ -30,73 +30,75 @@ export function TryOnCanvas({
 }: TryOnCanvasProps) {
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonPosition, setComparisonPosition] = useState(50);
-  const [imageRotation, setImageRotation] = useState(0);
+  const [correctedImage, setCorrectedImage] = useState<string | null>(null);
+  const [isCorrectingImage, setIsCorrectingImage] = useState(false);
 
-  // Detect and correct image orientation if needed
+  // Correct image orientation using Canvas API (real correction, not CSS transform)
   useEffect(() => {
     if (result?.result_image_url) {
+      setIsCorrectingImage(true);
+      setCorrectedImage(null);
+      
       const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
       img.onload = () => {
-        // If image is landscape (wider than tall by 20%), it's likely rotated incorrectly
+        // If image is landscape (wider than tall by 20%), rotate via Canvas
         if (img.width > img.height * 1.2) {
-          console.log('Detected rotated image, applying correction');
-          setImageRotation(90);
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            if (ctx) {
+              // Swap dimensions for correct orientation
+              canvas.width = img.height;
+              canvas.height = img.width;
+              
+              // Rotate and draw
+              ctx.translate(canvas.width / 2, canvas.height / 2);
+              ctx.rotate((90 * Math.PI) / 180);
+              ctx.drawImage(img, -img.width / 2, -img.height / 2);
+              
+              setCorrectedImage(canvas.toDataURL('image/jpeg', 0.92));
+            } else {
+              setCorrectedImage(result.result_image_url);
+            }
+          } catch (err) {
+            console.error('Canvas correction failed:', err);
+            setCorrectedImage(result.result_image_url);
+          }
         } else {
-          setImageRotation(0);
+          // Image is already in correct orientation
+          setCorrectedImage(result.result_image_url);
         }
+        setIsCorrectingImage(false);
       };
+      
+      img.onerror = () => {
+        setCorrectedImage(result.result_image_url);
+        setIsCorrectingImage(false);
+      };
+      
       img.src = result.result_image_url;
     } else {
-      setImageRotation(0);
+      setCorrectedImage(null);
+      setIsCorrectingImage(false);
     }
   }, [result?.result_image_url]);
 
   const handleDownload = async () => {
-    if (!result?.result_image_url) return;
+    const imageToDownload = correctedImage || result?.result_image_url;
+    if (!imageToDownload) return;
 
     try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = result.result_image_url;
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-
-      // If rotation is needed, use canvas to apply it before download
-      if (imageRotation !== 0) {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d')!;
-
-        // Swap dimensions for 90-degree rotation
-        canvas.width = img.height;
-        canvas.height = img.width;
-
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate((imageRotation * Math.PI) / 180);
-        ctx.drawImage(img, -img.width / 2, -img.height / 2);
-
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `try-on-${Date.now()}.png`;
-            a.click();
-            URL.revokeObjectURL(url);
-          }
-        }, 'image/png');
-      } else {
-        // Direct download if no rotation needed
-        const response = await fetch(result.result_image_url);
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `try-on-${Date.now()}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+      const response = await fetch(imageToDownload);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `try-on-${Date.now()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download error:', error);
     }
@@ -120,8 +122,8 @@ export function TryOnCanvas({
 
   return (
     <Card className="overflow-hidden shadow-elevated">
-      {/* Canvas Area */}
-      <div className="relative aspect-[3/4] bg-gradient-to-b from-secondary/50 to-secondary">
+      {/* Canvas Area - Fluid height for correct proportions */}
+      <div className="relative bg-gradient-to-b from-secondary/50 to-secondary min-h-[300px]">
         <AnimatePresence mode="wait">
           {isProcessing ? (
             <motion.div
@@ -129,7 +131,7 @@ export function TryOnCanvas({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex flex-col items-center justify-center"
+              className="flex flex-col items-center justify-center py-20"
             >
               <motion.div
                 animate={{
@@ -148,16 +150,28 @@ export function TryOnCanvas({
               <p className="text-sm font-medium text-foreground">Processando prova virtual...</p>
               <p className="text-xs text-muted-foreground mt-1">Isso pode levar alguns segundos</p>
             </motion.div>
-          ) : result?.result_image_url ? (
+          ) : isCorrectingImage ? (
+            <motion.div
+              key="correcting"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center justify-center py-20"
+            >
+              <p className="text-sm text-muted-foreground animate-pulse">
+                Otimizando imagem...
+              </p>
+            </motion.div>
+          ) : correctedImage ? (
             <motion.div
               key="result"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0"
+              className="relative"
             >
               {showComparison && avatarImageUrl ? (
-                <div className="relative w-full h-full">
+                <div className="relative aspect-[3/4]">
                   {/* Before image */}
                   <img
                     src={avatarImageUrl}
@@ -170,7 +184,7 @@ export function TryOnCanvas({
                     style={{ width: `${comparisonPosition}%` }}
                   >
                     <img
-                      src={result.result_image_url}
+                      src={correctedImage}
                       alt="Depois"
                       className="w-full h-full object-cover"
                       style={{ width: `${100 / (comparisonPosition / 100)}%` }}
@@ -197,15 +211,18 @@ export function TryOnCanvas({
                 </div>
               ) : (
                 <img
-                  src={result.result_image_url}
+                  src={correctedImage}
                   alt="Resultado"
-                  className="w-full h-full object-contain"
-                  style={imageRotation ? { 
-                    transform: `rotate(${imageRotation}deg)`,
-                    maxWidth: '100%',
-                    maxHeight: '100%'
-                  } : undefined}
+                  className="w-full h-auto block max-h-[70vh]"
+                  style={{ objectFit: 'contain' }}
                 />
+              )}
+              
+              {/* Processing time badge */}
+              {result?.processing_time_ms && (
+                <div className="absolute top-3 right-3 px-2 py-1 bg-background/80 backdrop-blur rounded-full text-xs text-muted-foreground">
+                  {(result.processing_time_ms / 1000).toFixed(1)}s
+                </div>
               )}
             </motion.div>
           ) : avatarImageUrl ? (
@@ -214,12 +231,12 @@ export function TryOnCanvas({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex items-center justify-center"
+              className="flex items-center justify-center py-20"
             >
               <img
                 src={avatarImageUrl}
                 alt="Avatar"
-                className="w-full h-full object-cover opacity-50"
+                className="w-full max-h-[60vh] object-contain opacity-50"
               />
               <div className="absolute inset-0 flex items-center justify-center">
                 <p className="text-sm text-muted-foreground bg-background/80 px-4 py-2 rounded-full">
@@ -232,7 +249,7 @@ export function TryOnCanvas({
               key="empty"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="absolute inset-0 flex items-center justify-center"
+              className="flex items-center justify-center py-20"
             >
               <div className="text-center">
                 <Sparkles className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
@@ -243,17 +260,10 @@ export function TryOnCanvas({
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Processing time badge */}
-        {result?.processing_time_ms && !isProcessing && (
-          <div className="absolute top-3 right-3 px-2 py-1 bg-background/80 backdrop-blur rounded-full text-xs text-muted-foreground">
-            {(result.processing_time_ms / 1000).toFixed(1)}s
-          </div>
-        )}
       </div>
 
       {/* Actions */}
-      {result?.result_image_url && !isProcessing && (
+      {correctedImage && !isProcessing && !isCorrectingImage && (
         <div className="p-4 border-t border-border">
           <div className="flex items-center gap-2">
             {avatarImageUrl && (
