@@ -10,11 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { useAccessibility, type FontSize, type ThemePreference } from '@/contexts/AccessibilityContext';
-import { useBackgroundSettings, type BackgroundVariant } from '@/contexts/BackgroundSettingsContext';
+import { useBackgroundSettings, type BackgroundVariant, type ThemeMode } from '@/contexts/BackgroundSettingsContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,7 +54,9 @@ export default function Settings() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const darkFileInputRef = useRef<HTMLInputElement>(null);
+  const lightFileInputRef = useRef<HTMLInputElement>(null);
+  const [activeTab, setActiveTab] = useState<ThemeMode>('dark');
   const { fontSize, setFontSize, themePreference, setThemePreference } = useAccessibility();
   const { 
     settings: bgSettings, 
@@ -224,152 +227,182 @@ export default function Settings() {
 
               <Separator />
 
-              {/* Background Selection - Dark Mode Only */}
+              {/* Background Selection with Tabs for Dark/Light Mode */}
               <div className="space-y-3">
                 <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <Image className="w-4 h-4" />
                   Fundo Artístico
-                  <span className="text-xs text-muted-foreground/70">(modo escuro)</span>
                 </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {backgroundOptions.map((option) => {
-                    const Icon = option.icon;
-                    const isSelected = bgSettings.variant === option.value;
-                    const isCustom = option.value === 'custom';
-                    const hasCustomImage = !!bgSettings.customImageUrl;
+                
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ThemeMode)} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-4">
+                    <TabsTrigger value="dark" className="flex items-center gap-2">
+                      <Moon className="w-4 h-4" />
+                      Modo Escuro
+                    </TabsTrigger>
+                    <TabsTrigger value="light" className="flex items-center gap-2">
+                      <Sun className="w-4 h-4" />
+                      Modo Claro
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  {(['dark', 'light'] as ThemeMode[]).map((mode) => {
+                    const modeSettings = bgSettings[mode];
+                    const fileInputRef = mode === 'dark' ? darkFileInputRef : lightFileInputRef;
                     
                     return (
-                      <motion.button
-                        key={option.value}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => {
-                          if (isCustom && !hasCustomImage) {
-                            // Trigger file input
-                            fileInputRef.current?.click();
-                          } else {
-                            setVariant(option.value);
+                      <TabsContent key={mode} value={mode} className="space-y-4 mt-0">
+                        {/* Variant Selection */}
+                        <div className="grid grid-cols-4 gap-2">
+                          {backgroundOptions.map((option) => {
+                            const Icon = option.icon;
+                            const isSelected = modeSettings.variant === option.value;
+                            const isCustom = option.value === 'custom';
+                            const hasCustomImage = !!modeSettings.customImageUrl;
+                            
+                            return (
+                              <motion.button
+                                key={option.value}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => {
+                                  if (isCustom && !hasCustomImage) {
+                                    fileInputRef.current?.click();
+                                  } else {
+                                    setVariant(mode, option.value);
+                                  }
+                                }}
+                                className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
+                                  isSelected
+                                    ? 'border-primary bg-primary/5 dark:neon-border dark:bg-primary/10'
+                                    : 'border-border hover:border-primary/30'
+                                }`}
+                              >
+                                <Icon className={`w-5 h-5 ${isSelected ? 'text-primary dark:neon-text-gold' : 'text-muted-foreground'}`} />
+                                <span className={`text-xs font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                  {option.label}
+                                </span>
+                              </motion.button>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Hidden file input */}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (file.size > 5 * 1024 * 1024) {
+                                toast.error('Imagem muito grande. Máximo 5MB.');
+                                return;
+                              }
+                              const result = await uploadCustomBackground(mode, file);
+                              if (result) {
+                                toast.success('Fundo personalizado salvo!');
+                              } else {
+                                toast.error('Erro ao enviar imagem');
+                              }
+                            }
+                            e.target.value = '';
+                          }}
+                        />
+                        
+                        {/* Custom background preview & actions */}
+                        {modeSettings.variant === 'custom' && modeSettings.customImageUrl && (
+                          <div className="space-y-3">
+                            <div className="relative rounded-xl overflow-hidden aspect-video border border-border">
+                              <img 
+                                src={modeSettings.customImageUrl} 
+                                alt="Fundo personalizado" 
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+                              <div className="absolute bottom-2 left-2 right-2 flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => fileInputRef.current?.click()}
+                                  disabled={isUploading}
+                                  className="flex-1 text-xs bg-background/80 backdrop-blur-sm"
+                                >
+                                  {isUploading ? (
+                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <Upload className="w-3 h-3 mr-1" />
+                                  )}
+                                  Trocar
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    await deleteCustomBackground(mode);
+                                    toast.success('Fundo personalizado removido');
+                                  }}
+                                  className="text-xs bg-background/80 backdrop-blur-sm text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground text-center">
+                              Sua imagem personalizada de fundo ({mode === 'dark' ? 'modo escuro' : 'modo claro'})
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Upload prompt when custom is selected but no image */}
+                        {modeSettings.variant === 'custom' && !modeSettings.customImageUrl && (
+                          <div 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="p-6 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors text-center"
+                          >
+                            {isUploading ? (
+                              <Loader2 className="w-8 h-8 mx-auto mb-2 text-primary animate-spin" />
+                            ) : (
+                              <Upload className="w-8 h-8 mx-auto mb-2 text-primary" />
+                            )}
+                            <p className="text-sm font-medium">Clique para enviar imagem</p>
+                            <p className="text-xs text-muted-foreground mt-1">PNG, JPG até 5MB</p>
+                          </div>
+                        )}
+                        
+                        {/* Opacity Slider */}
+                        {modeSettings.variant !== 'none' && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-muted-foreground">Intensidade</span>
+                              <span className="text-sm font-medium text-primary">{Math.round(modeSettings.opacity * 100)}%</span>
+                            </div>
+                            <Slider
+                              value={[modeSettings.opacity * 100]}
+                              onValueChange={(value) => setOpacity(mode, value[0] / 100)}
+                              min={15}
+                              max={100}
+                              step={5}
+                              className="w-full"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Ajuste a visibilidade do fundo artístico (15% - 100%)
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Mode-specific tips */}
+                        <p className="text-xs text-muted-foreground/70 italic">
+                          {mode === 'dark' 
+                            ? 'O fundo artístico no modo escuro cria uma atmosfera sofisticada e imersiva.'
+                            : 'No modo claro, recomendamos usar opacidade mais baixa para manter a legibilidade.'
                           }
-                        }}
-                        className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
-                          isSelected
-                            ? 'border-primary bg-primary/5 dark:neon-border dark:bg-primary/10'
-                            : 'border-border hover:border-primary/30'
-                        }`}
-                      >
-                        <Icon className={`w-5 h-5 ${isSelected ? 'text-primary dark:neon-text-gold' : 'text-muted-foreground'}`} />
-                        <span className={`text-xs font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
-                          {option.label}
-                        </span>
-                      </motion.button>
+                        </p>
+                      </TabsContent>
                     );
                   })}
-                </div>
-                
-                {/* Hidden file input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.size > 5 * 1024 * 1024) {
-                        toast.error('Imagem muito grande. Máximo 5MB.');
-                        return;
-                      }
-                      const result = await uploadCustomBackground(file);
-                      if (result) {
-                        toast.success('Fundo personalizado salvo!');
-                      } else {
-                        toast.error('Erro ao enviar imagem');
-                      }
-                    }
-                    e.target.value = '';
-                  }}
-                />
-                
-                {/* Custom background preview & actions */}
-                {bgSettings.variant === 'custom' && bgSettings.customImageUrl && (
-                  <div className="space-y-3 pt-2">
-                    <div className="relative rounded-xl overflow-hidden aspect-video border border-border">
-                      <img 
-                        src={bgSettings.customImageUrl} 
-                        alt="Fundo personalizado" 
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
-                      <div className="absolute bottom-2 left-2 right-2 flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={isUploading}
-                          className="flex-1 text-xs bg-background/80 backdrop-blur-sm"
-                        >
-                          {isUploading ? (
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          ) : (
-                            <Upload className="w-3 h-3 mr-1" />
-                          )}
-                          Trocar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            await deleteCustomBackground();
-                            toast.success('Fundo personalizado removido');
-                          }}
-                          className="text-xs bg-background/80 backdrop-blur-sm text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground text-center">
-                      Sua imagem personalizada de fundo
-                    </p>
-                  </div>
-                )}
-                
-                {/* Upload prompt when custom is selected but no image */}
-                {bgSettings.variant === 'custom' && !bgSettings.customImageUrl && (
-                  <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-6 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors text-center"
-                  >
-                    {isUploading ? (
-                      <Loader2 className="w-8 h-8 mx-auto mb-2 text-primary animate-spin" />
-                    ) : (
-                      <Upload className="w-8 h-8 mx-auto mb-2 text-primary" />
-                    )}
-                    <p className="text-sm font-medium">Clique para enviar imagem</p>
-                    <p className="text-xs text-muted-foreground mt-1">PNG, JPG até 5MB</p>
-                  </div>
-                )}
-                
-                {/* Opacity Slider */}
-                {bgSettings.variant !== 'none' && (
-                  <div className="space-y-2 pt-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Intensidade</span>
-                      <span className="text-sm font-medium text-primary">{Math.round(bgSettings.opacity * 100)}%</span>
-                    </div>
-                    <Slider
-                      value={[bgSettings.opacity * 100]}
-                      onValueChange={(value) => setOpacity(value[0] / 100)}
-                      min={30}
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Ajuste a visibilidade do fundo artístico (30% - 100%)
-                    </p>
-                  </div>
-                )}
+                </Tabs>
               </div>
             </div>
           </motion.section>
