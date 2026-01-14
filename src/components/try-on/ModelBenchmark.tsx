@@ -32,20 +32,23 @@ interface BenchmarkModel {
 
 interface ModelResult {
   model: string;
-  success: boolean;
+  status: "success" | "failed" | "skipped";
   error?: string;
-  imageUrl?: string;
-  timeMs?: number;
+  resultImageUrl?: string;
+  processingTimeMs?: number;
+  cost?: string;
 }
 
 interface BenchmarkResponse {
+  success: boolean;
+  category: string;
   results: ModelResult[];
-  fastest: string | null;
   totalTimeMs: number;
   summary: {
     success: number;
     failed: number;
     skipped: number;
+    fastestModel: string | null;
   };
 }
 
@@ -406,9 +409,9 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                       {(benchmarkSummary.totalTimeMs / 1000).toFixed(1)}s total
                     </div>
                   </div>
-                  {benchmarkSummary.fastest && (
+                  {benchmarkSummary.summary.fastestModel && (
                     <p className="text-xs text-primary mt-2">
-                      🏆 Mais rápido: {getModelInfo(benchmarkSummary.fastest).name}
+                      🏆 Mais rápido: {getModelInfo(benchmarkSummary.summary.fastestModel).name}
                     </p>
                   )}
                 </CardContent>
@@ -420,7 +423,8 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
               {results.map((result, index) => {
                 const modelInfo = getModelInfo(result.model);
                 const Icon = modelInfo.icon;
-                const isFastest = benchmarkSummary?.fastest === result.model;
+                const isFastest = benchmarkSummary?.summary.fastestModel === result.model;
+                const isSuccess = result.status === "success";
                 
                 return (
                   <motion.div
@@ -431,7 +435,7 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                   >
                     <Card className={cn(
                       "overflow-hidden transition-all",
-                      result.success 
+                      isSuccess 
                         ? isFastest 
                           ? "border-primary ring-2 ring-primary/20" 
                           : "border-border/50"
@@ -452,13 +456,13 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                               🏆 Mais rápido
                             </Badge>
                           )}
-                          {result.success && result.timeMs && (
+                          {isSuccess && result.processingTimeMs && (
                             <Badge variant="outline" className="text-xs">
                               <Clock className="w-3 h-3 mr-1" />
-                              {(result.timeMs / 1000).toFixed(1)}s
+                              {(result.processingTimeMs / 1000).toFixed(1)}s
                             </Badge>
                           )}
-                          {!result.success && (
+                          {!isSuccess && (
                             <Badge variant="destructive" className="text-xs">
                               <XCircle className="w-3 h-3 mr-1" />
                               Falhou
@@ -469,10 +473,10 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                       
                       {/* Result Image or Error */}
                       <CardContent className="p-0">
-                        {result.success && result.imageUrl ? (
+                        {isSuccess && result.resultImageUrl ? (
                           <div className="relative group">
                             <img
-                              src={result.imageUrl}
+                              src={result.resultImageUrl}
                               alt={`Resultado ${modelInfo.name}`}
                               className="w-full h-auto max-h-[400px] object-contain bg-secondary/30"
                             />
@@ -480,7 +484,7 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                               <Button
                                 size="sm"
-                                onClick={() => onSelectResult?.(result.imageUrl!, result.model)}
+                                onClick={() => onSelectResult?.(result.resultImageUrl!, result.model)}
                                 className="gradient-primary"
                               >
                                 Usar Este
@@ -488,7 +492,7 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => window.open(result.imageUrl, '_blank')}
+                                onClick={() => window.open(result.resultImageUrl, '_blank')}
                               >
                                 Abrir
                               </Button>
