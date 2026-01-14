@@ -181,7 +181,10 @@ export function VirtualTryOnDemo() {
             <Sparkles className="w-8 h-8 text-primary-foreground" />
           </motion.div>
           
-          <h3 className="font-display text-2xl font-semibold">
+          <h3 
+            className="font-display text-2xl font-semibold cursor-default select-none"
+            onClick={handleTitleClick}
+          >
             Sua <span className="text-gradient">transformação</span>!
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
@@ -332,7 +335,10 @@ export function VirtualTryOnDemo() {
             <Check className="w-8 h-8 text-primary" />
           </motion.div>
           
-          <h3 className="font-display text-xl font-semibold mb-2">
+          <h3 
+            className="font-display text-xl font-semibold mb-2 cursor-default select-none"
+            onClick={handleTitleClick}
+          >
             Você já experimentou a demo!
           </h3>
           <p className="text-muted-foreground text-sm mb-6">
