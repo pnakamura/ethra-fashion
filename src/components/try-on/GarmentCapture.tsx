@@ -1,11 +1,13 @@
 import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Image, Link as LinkIcon, Upload, X, Check, Loader2 } from 'lucide-react';
+import { Camera, Image, Link as LinkIcon, Upload, X, Check, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { useGarmentExtraction } from '@/hooks/useGarmentExtraction';
+import { useSmartCamera } from '@/hooks/useSmartCamera';
 import { toast } from 'sonner';
 
 interface GarmentCaptureProps {
@@ -23,8 +25,10 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [sourceUrl, setSourceUrl] = useState('');
   const [activeTab, setActiveTab] = useState('camera');
+  const [imageQuality, setImageQuality] = useState<number | null>(null);
   
   const { extractGarmentAsync, extractFromUrlAsync, isExtracting, externalGarments } = useGarmentExtraction();
+  const { analyzeImage } = useSmartCamera();
 
   // Validate URL format
   const isValidUrl = (url: string): boolean => {
@@ -47,6 +51,21 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
 
+    // Analyze image quality
+    try {
+      const analysis = await analyzeImage(url);
+      if (analysis) {
+        setImageQuality(analysis.overallScore);
+        if (analysis.overallScore < 50) {
+          toast.warning('Qualidade da imagem baixa', {
+            description: analysis.tips[0] || 'Tente capturar novamente com melhor iluminação'
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Could not analyze image quality:', err);
+    }
+
     try {
       const garment = await extractGarmentAsync({
         file,
@@ -62,6 +81,7 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
     } catch (error) {
       console.error('Error extracting garment:', error);
       setPreviewUrl(null);
+      setImageQuality(null);
     }
   };
 
@@ -96,11 +116,23 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
   const clearPreview = () => {
     setPreviewUrl(null);
     setSourceUrl('');
+    setImageQuality(null);
   };
 
   return (
     <Card className="p-4 shadow-soft">
-      <h3 className="font-display text-lg font-medium mb-4">Capturar Peça Externa</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-display text-lg font-medium">Capturar Peça Externa</h3>
+        {imageQuality !== null && (
+          <Badge 
+            variant={imageQuality >= 65 ? 'default' : imageQuality >= 50 ? 'secondary' : 'destructive'}
+            className="text-xs"
+          >
+            <Sparkles className="w-3 h-3 mr-1" />
+            {imageQuality}%
+          </Badge>
+        )}
+      </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-3 mb-4">

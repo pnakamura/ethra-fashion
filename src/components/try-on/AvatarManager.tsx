@@ -1,15 +1,20 @@
 import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Check, User, X, Loader2, Crown } from 'lucide-react';
+import { Upload, Check, User, X, Loader2, Crown, Camera, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useVirtualTryOn } from '@/hooks/useVirtualTryOn';
+import { SmartCameraCapture } from './SmartCameraCapture';
+import { PrivacySettings } from './PrivacySettings';
 
 export function AvatarManager() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showInstructions, setShowInstructions] = useState(false);
   const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null);
+  const [showSmartCamera, setShowSmartCamera] = useState(false);
+  const [blurFaceEnabled, setBlurFaceEnabled] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
   
   const {
     primaryAvatar,
@@ -27,6 +32,12 @@ export function AvatarManager() {
     }
   };
 
+  const handleSmartCameraCapture = (blob: Blob) => {
+    const file = new File([blob], `avatar-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    uploadAvatar(file);
+    setShowSmartCamera(false);
+  };
+
   const handleSetPrimary = async (avatarId: string) => {
     setSettingPrimaryId(avatarId);
     try {
@@ -35,6 +46,17 @@ export function AvatarManager() {
       setSettingPrimaryId(null);
     }
   };
+
+  // Show Smart Camera overlay
+  if (showSmartCamera) {
+    return (
+      <SmartCameraCapture
+        mode="avatar"
+        onCapture={handleSmartCameraCapture}
+        onCancel={() => setShowSmartCamera(false)}
+      />
+    );
+  }
 
   return (
     <Card className="p-4 shadow-soft">
@@ -48,15 +70,43 @@ export function AvatarManager() {
             </Badge>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowInstructions(!showInstructions)}
-          className="text-muted-foreground"
-        >
-          {showInstructions ? <X className="w-4 h-4" /> : 'Dicas'}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowPrivacy(!showPrivacy)}
+            className={showPrivacy ? 'text-primary' : 'text-muted-foreground'}
+          >
+            <Shield className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowInstructions(!showInstructions)}
+            className="text-muted-foreground"
+          >
+            {showInstructions ? <X className="w-4 h-4" /> : 'Dicas'}
+          </Button>
+        </div>
       </div>
+
+      {/* Privacy Settings */}
+      <AnimatePresence>
+        {showPrivacy && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-4"
+          >
+            <PrivacySettings
+              blurFaceEnabled={blurFaceEnabled}
+              onBlurFaceChange={setBlurFaceEnabled}
+              compact
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showInstructions && (
@@ -117,15 +167,25 @@ export function AvatarManager() {
             </div>
           )}
         </div>
+      </div>
 
+      {/* Action Buttons */}
+      <div className="flex gap-2">
+        <Button
+          onClick={() => setShowSmartCamera(true)}
+          disabled={isUploadingAvatar}
+          className="flex-1 gradient-primary text-primary-foreground"
+        >
+          <Camera className="w-4 h-4 mr-2" />
+          Câmera Inteligente
+        </Button>
         <Button
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploadingAvatar}
-          size="sm"
-          className="gradient-primary text-primary-foreground"
+          variant="outline"
+          size="icon"
         >
-          <Upload className="w-4 h-4 mr-2" />
-          {primaryAvatar ? 'Trocar' : 'Adicionar'}
+          <Upload className="w-4 h-4" />
         </Button>
       </div>
 
