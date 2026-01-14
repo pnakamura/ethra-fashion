@@ -136,27 +136,12 @@ serve(async (req) => {
       await sleep(waitMs);
     };
 
-    // Primary model: CatVTON-FLUX (more robust, faster)
-    const callCatVTON = async (attempt: number, seed: number = 42) => {
-      console.log(`CatVTON-FLUX attempt ${attempt}, seed=${seed}`);
-      
-      return await replicate.run(
-        "mmezhov/catvton-flux",
-        {
-          input: {
-            image: avatarImageUrl,      // Person image
-            garment: garmentImageUrl,   // Garment image
-            num_inference_steps: 30,
-            seed: seed,
-            guidance_scale: 30,
-          },
-        }
-      );
-    };
+    // Primary model: IDM-VTON (CatVTON was discontinued)
+    // IDM-VTON is now the main model for virtual try-on
 
-    // Fallback model: IDM-VTON (if CatVTON fails)
+    // Primary model: IDM-VTON
     const callIDMVTON = async (autoCrop: boolean, autoMask: boolean, attempt: number) => {
-      console.log(`IDM-VTON fallback attempt ${attempt}: auto_crop=${autoCrop}, auto_mask=${autoMask}`);
+      console.log(`IDM-VTON attempt ${attempt}: auto_crop=${autoCrop}, auto_mask=${autoMask}`);
       
       return await replicate.run(
         "cuuupid/idm-vton:c871bb9b046607b680449ecbae55fd8c6d945e0a1948644bf2361b3d021d3ff4",
@@ -290,89 +275,88 @@ Output a single photorealistic image with the same dimensions and orientation as
 
     try {
       let output: unknown;
-      let usedModel = "CatVTON-FLUX";
+      let usedModel = "IDM-VTON";
 
-      // Attempt 1: CatVTON-FLUX (primary - more robust)
+      // Primary: IDM-VTON with progressive fallback configurations
       try {
-        output = await callCatVTON(1);
+        output = await callIDMVTON(true, true, 1);
       } catch (firstError) {
         const firstErrorMsg = firstError instanceof Error ? firstError.message : String(firstError);
-        console.log("CatVTON-FLUX first attempt failed:", firstErrorMsg);
+        console.log("IDM-VTON first attempt failed:", firstErrorMsg);
         
         // Check for rate limiting - wait and retry
         if (firstErrorMsg.includes("429") || firstErrorMsg.includes("Too Many Requests") || firstErrorMsg.includes("throttled")) {
           await sleepForRateLimit(firstErrorMsg);
           try {
-            output = await callCatVTON(2, 123);
+            output = await callIDMVTON(true, true, 2);
           } catch (retryError) {
             const retryErrorMsg = retryError instanceof Error ? retryError.message : String(retryError);
-            console.log("CatVTON-FLUX retry failed:", retryErrorMsg);
-            throw retryError;
-          }
-        }
-        // Try with different seed if image processing issue
-        else if (firstErrorMsg.includes("index") || firstErrorMsg.includes("processing") || firstErrorMsg.includes("Failed")) {
-          console.log("CatVTON-FLUX processing issue, trying with different seed...");
-          await sleep(2000);
-          try {
-            output = await callCatVTON(2, 123);
-          } catch (secondError) {
-            const secondErrorMsg = secondError instanceof Error ? secondError.message : String(secondError);
-            console.log("CatVTON-FLUX second attempt failed, falling back to IDM-VTON:", secondErrorMsg);
-            
-            // Fallback to IDM-VTON
-            await sleep(2000);
-            try {
-              output = await callIDMVTON(true, true, 1);
-              usedModel = "IDM-VTON";
-            } catch (idmError) {
-              const idmErrorMsg = idmError instanceof Error ? idmError.message : String(idmError);
-              console.log("IDM-VTON first attempt failed:", idmErrorMsg);
-              
-              if (idmErrorMsg.includes("list index out of range")) {
-                await sleep(2000);
-                try {
-                  output = await callIDMVTON(false, true, 2);
-                  usedModel = "IDM-VTON (fallback config)";
-                } catch (idmError2) {
-                  const idmErrorMsg2 = idmError2 instanceof Error ? idmError2.message : String(idmError2);
-                  if (idmErrorMsg2.includes("list index out of range")) {
-                    await sleep(2000);
-                    output = await callIDMVTON(false, false, 3);
-                    usedModel = "IDM-VTON (minimal config)";
-                  } else {
-                    throw idmError2;
-                  }
-                }
-              } else {
-                throw idmError;
-              }
-            }
-          }
-        } else {
-          // Unknown error, try IDM-VTON as fallback
-          console.log("Unknown CatVTON error, falling back to IDM-VTON...");
-          await sleep(2000);
-          try {
-            output = await callIDMVTON(true, true, 1);
-            usedModel = "IDM-VTON";
-          } catch (idmError) {
-            // IDM-VTON failed too, try Nano Banana as last resort
-            console.log("IDM-VTON failed, trying Nano Banana as final fallback...");
+            console.log("IDM-VTON retry after rate limit failed:", retryErrorMsg);
+            // Try Nano Banana as fallback
+            console.log("Trying Nano Banana as fallback after rate limit...");
             const nanoBananaResult = await callNanoBanana();
             if (nanoBananaResult) {
               output = nanoBananaResult;
               usedModel = "Nano Banana (Lovable AI)";
             } else {
-              throw idmError;
+              throw retryError;
             }
+          }
+        }
+        // "list index out of range" - try with different auto_crop/auto_mask settings
+        else if (firstErrorMsg.includes("list index out of range")) {
+          console.log("IDM-VTON detection issue, trying with auto_crop=false...");
+          await sleep(2000);
+          try {
+            output = await callIDMVTON(false, true, 2);
+            usedModel = "IDM-VTON (fallback config)";
+          } catch (secondError) {
+            const secondErrorMsg = secondError instanceof Error ? secondError.message : String(secondError);
+            if (secondErrorMsg.includes("list index out of range")) {
+              console.log("IDM-VTON still failing, trying minimal config...");
+              await sleep(2000);
+              try {
+                output = await callIDMVTON(false, false, 3);
+                usedModel = "IDM-VTON (minimal config)";
+              } catch (thirdError) {
+                // All IDM-VTON attempts failed, try Nano Banana
+                console.log("All IDM-VTON attempts failed, trying Nano Banana...");
+                const nanoBananaResult = await callNanoBanana();
+                if (nanoBananaResult) {
+                  output = nanoBananaResult;
+                  usedModel = "Nano Banana (Lovable AI)";
+                } else {
+                  throw thirdError;
+                }
+              }
+            } else {
+              // Different error, try Nano Banana
+              console.log("IDM-VTON failed with different error, trying Nano Banana...");
+              const nanoBananaResult = await callNanoBanana();
+              if (nanoBananaResult) {
+                output = nanoBananaResult;
+                usedModel = "Nano Banana (Lovable AI)";
+              } else {
+                throw secondError;
+              }
+            }
+          }
+        } else {
+          // Unknown error, try Nano Banana directly
+          console.log("IDM-VTON failed with unknown error, trying Nano Banana...");
+          const nanoBananaResult = await callNanoBanana();
+          if (nanoBananaResult) {
+            output = nanoBananaResult;
+            usedModel = "Nano Banana (Lovable AI)";
+          } else {
+            throw firstError;
           }
         }
       }
 
-      // If we still don't have output after all attempts, try Nano Banana
+      // If we still don't have output, try Nano Banana as last resort
       if (!output) {
-        console.log("No output from Replicate models, trying Nano Banana...");
+        console.log("No output from IDM-VTON, trying Nano Banana...");
         const nanoBananaResult = await callNanoBanana();
         if (nanoBananaResult) {
           output = nanoBananaResult;
