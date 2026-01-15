@@ -39,7 +39,7 @@ interface BenchmarkModel {
   icon: typeof Zap;
   color: string;
   description: string;
-  apiProvider: 'replicate' | 'lovable' | 'google-cloud';
+  apiProvider: 'replicate' | 'lovable' | 'google-cloud' | 'fal';
 }
 
 interface ModelResult {
@@ -72,6 +72,14 @@ const BENCHMARK_MODELS: BenchmarkModel[] = [
     color: 'text-rose-500 bg-rose-500/10 border-rose-500/30',
     description: 'Replicate - Especializado VTO',
     apiProvider: 'replicate'
+  },
+  {
+    id: 'leffa',
+    name: 'Leffa',
+    icon: Sparkles,
+    color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/30',
+    description: 'FAL.AI - VTO Comercial',
+    apiProvider: 'fal'
   },
   {
     id: 'seedream-4.5',
@@ -116,7 +124,7 @@ interface ModelBenchmarkProps {
 }
 
 export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmarkProps) {
-  const [selectedModels, setSelectedModels] = useState<string[]>(['idm-vton', 'seedream-4.5', 'vertex-ai', 'gemini']);
+  const [selectedModels, setSelectedModels] = useState<string[]>(['idm-vton', 'leffa', 'seedream-4.5', 'vertex-ai', 'gemini']);
   const [garmentUrl, setGarmentUrl] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -416,10 +424,12 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-sm">{model.name}</p>
                     <Badge variant="outline" className="text-[9px] px-1.5 py-0 opacity-60">
-                      {model.apiProvider === 'replicate' ? (
+                    {model.apiProvider === 'replicate' ? (
                         <><ExternalLink className="w-2.5 h-2.5 mr-0.5" /> Replicate</>
                       ) : model.apiProvider === 'google-cloud' ? (
                         <><ExternalLink className="w-2.5 h-2.5 mr-0.5" /> Google Cloud</>
+                      ) : model.apiProvider === 'fal' ? (
+                        <><ExternalLink className="w-2.5 h-2.5 mr-0.5" /> FAL.AI</>
                       ) : (
                         'Lovable AI'
                       )}

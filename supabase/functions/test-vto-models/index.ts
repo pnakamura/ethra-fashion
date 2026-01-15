@@ -207,6 +207,129 @@ const getReplicateLatestVersion = async (
 };
 
 // ============================================
+// Leffa via FAL.AI (Commercial VTO)
+// ============================================
+const callLeffa = async (
+  avatarUrl: string,
+  garmentUrl: string,
+  category: string,
+  falApiKey: string
+): Promise<ModelResult> => {
+  const startTime = Date.now();
+  const model = "leffa";
+
+  try {
+    console.log(`[${model}] Starting...`);
+
+    // Map category to Leffa format
+    const mapCategory = (cat: string): string => {
+      const normalized = (cat || "").toLowerCase();
+      if (["top", "upper_body", "shirt", "blouse", "jacket"].includes(normalized)) 
+        return "upper_body";
+      if (["bottom", "lower_body", "pants", "skirt", "shorts"].includes(normalized)) 
+        return "lower_body";
+      if (["dress", "dresses", "full_body", "full"].includes(normalized)) 
+        return "dresses";
+      return "upper_body";
+    };
+
+    const leffaCategory = mapCategory(category);
+    console.log(`[${model}] Category mapped: ${category} -> ${leffaCategory}`);
+
+    // Submit request to FAL.AI queue
+    const submitResponse = await fetch(
+      "https://queue.fal.run/fal-ai/leffa/virtual-tryon",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Key ${falApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          human_image_url: avatarUrl,
+          garment_image_url: garmentUrl,
+          garment_type: leffaCategory,
+        }),
+      }
+    );
+
+    if (!submitResponse.ok) {
+      const errorText = await submitResponse.text();
+      console.error(`[${model}] Submit error:`, submitResponse.status, errorText);
+      
+      if (submitResponse.status === 401) {
+        throw new Error("FAL API key invalid");
+      }
+      if (submitResponse.status === 429) {
+        throw new Error("Rate limit exceeded");
+      }
+      throw new Error(`API error: ${submitResponse.status}`);
+    }
+
+    const queueData = await submitResponse.json();
+    const requestId = queueData.request_id;
+    console.log(`[${model}] Request queued:`, requestId);
+
+    // Poll for result (max 2 minutes)
+    const maxAttempts = 60;
+    for (let i = 0; i < maxAttempts; i++) {
+      await sleep(2000);
+
+      const statusResponse = await fetch(
+        `https://queue.fal.run/fal-ai/leffa/virtual-tryon/requests/${requestId}/status`,
+        {
+          headers: { "Authorization": `Key ${falApiKey}` },
+        }
+      );
+
+      if (!statusResponse.ok) continue;
+
+      const status = await statusResponse.json();
+      console.log(`[${model}] Status (${i + 1}/${maxAttempts}):`, status.status);
+
+      if (status.status === "COMPLETED") {
+        // Fetch result
+        const resultResponse = await fetch(
+          `https://queue.fal.run/fal-ai/leffa/virtual-tryon/requests/${requestId}`,
+          {
+            headers: { "Authorization": `Key ${falApiKey}` },
+          }
+        );
+        
+        const result = await resultResponse.json();
+        const outputUrl = result.image?.url;
+
+        if (outputUrl && typeof outputUrl === "string") {
+          return {
+            model,
+            status: "success",
+            resultImageUrl: outputUrl,
+            processingTimeMs: Date.now() - startTime,
+            cost: "$0.03",
+          };
+        }
+        throw new Error("No valid output URL");
+      }
+
+      if (status.status === "FAILED") {
+        throw new Error(status.error || "Processing failed");
+      }
+    }
+
+    throw new Error("Timeout waiting for result");
+  } catch (error: any) {
+    console.error(`[${model}] Error:`, error.message);
+    return {
+      model,
+      status: "failed",
+      processingTimeMs: Date.now() - startTime,
+      cost: "$0.00",
+      error: error.message,
+    };
+  }
+};
+
+// ============================================
 // IDM-VTON via Replicate (Specialized VTO)
 // ============================================
 
@@ -839,9 +962,10 @@ serve(async (req) => {
 
     const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const FAL_API_KEY = Deno.env.get("FAL_API_KEY");
 
-    // Include IDM-VTON in the default list
-    const allModels = ["idm-vton", "seedream-4.5", "seedream-4.0", "vertex-ai", "gemini"];
+    // Include all models in the default list
+    const allModels = ["idm-vton", "leffa", "seedream-4.5", "seedream-4.0", "vertex-ai", "gemini"];
     const modelsToRun = requestedModels || allModels;
 
     console.log("Running models:", modelsToRun);
@@ -851,12 +975,16 @@ serve(async (req) => {
     const replicateModels = modelsToRun.filter((m: string) => 
       ['idm-vton', 'seedream-4.5', 'seedream-4.0'].includes(m)
     );
+    const falModels = modelsToRun.filter((m: string) => 
+      ['leffa'].includes(m)
+    );
     const googleModels = modelsToRun.filter((m: string) => 
       ['vertex-ai', 'gemini'].includes(m)
     );
 
     console.log("=== Execution Strategy ===");
     console.log("Replicate models (sequential with 12s delay):", replicateModels);
+    console.log("FAL.AI models (sequential with 5s delay):", falModels);
     console.log("Google models (sequential with 5s delay):", googleModels);
 
     const allResults: ModelResult[] = [];
@@ -935,7 +1063,48 @@ serve(async (req) => {
     }
 
     // ============================================
-    // STEP 2: Execute Google models SEQUENTIALLY
+    // STEP 2: Execute FAL.AI models SEQUENTIALLY
+    // 5 seconds delay to avoid rate limits
+    // ============================================
+    const FAL_DELAY_MS = 5000;
+    
+    for (let i = 0; i < falModels.length; i++) {
+      const modelName = falModels[i];
+      
+      if (i > 0 || replicateModels.length > 0) {
+        console.log(`[FAL.AI] Waiting ${FAL_DELAY_MS / 1000}s before ${modelName}...`);
+        await sleep(FAL_DELAY_MS);
+      }
+      
+      console.log(`[FAL.AI] Starting ${modelName} (${i + 1}/${falModels.length})...`);
+      let result: ModelResult;
+      
+      try {
+        switch (modelName) {
+          case "leffa":
+            if (FAL_API_KEY) {
+              result = await withTimeout(
+                callLeffa(avatarImageUrl, garmentImageUrl, category, FAL_API_KEY),
+                MODEL_TIMEOUT_MS,
+                "Leffa"
+              );
+            } else {
+              result = { model: "leffa", status: "skipped", cost: "$0.00", error: "FAL_API_KEY not configured" };
+            }
+            break;
+          default:
+            result = { model: modelName, status: "skipped", cost: "$0.00", error: "Unknown FAL.AI model" };
+        }
+      } catch (err: any) {
+        result = { model: modelName, status: "failed", cost: "$0.00", error: err.message };
+      }
+      
+      allResults.push(result);
+      console.log(`[FAL.AI] ${modelName} completed: ${result.status} (${result.processingTimeMs || 0}ms)`);
+    }
+
+    // ============================================
+    // STEP 3: Execute Google models SEQUENTIALLY
     // 5 seconds delay to avoid rate limits
     // ============================================
     const GOOGLE_DELAY_MS = 5000;
