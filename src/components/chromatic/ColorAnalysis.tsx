@@ -1,9 +1,12 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Upload, RotateCcw, Loader2, Sparkles, X } from 'lucide-react';
+import { Camera, Upload, RotateCcw, Loader2, Sparkles, AlertTriangle, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ColorAnalysisResult } from './ColorAnalysisResult';
+import { ChromaticCameraCapture } from './ChromaticCameraCapture';
 import { useColorAnalysis, type ColorAnalysisResult as AnalysisType } from '@/hooks/useColorAnalysis';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 interface ColorAnalysisProps {
   onComplete?: (result: AnalysisType) => void;
@@ -11,6 +14,16 @@ interface ColorAnalysisProps {
   showSaveButton?: boolean;
   demoMode?: boolean;
 }
+
+// Rotating analysis messages
+const ANALYSIS_MESSAGES = [
+  'Analisando tom de pele...',
+  'Identificando subtom...',
+  'Verificando contraste...',
+  'Analisando cor dos olhos...',
+  'Determinando sua estação...',
+  'Finalizando análise...'
+];
 
 export function ColorAnalysis({ 
   onComplete, 
@@ -20,50 +33,29 @@ export function ColorAnalysis({
 }: ColorAnalysisProps) {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [messageIndex, setMessageIndex] = useState(0);
+  const fileInputRef = useState<HTMLInputElement | null>(null);
 
-  const { isAnalyzing, result, analyzeImage, reset } = useColorAnalysis();
+  const { isAnalyzing, result, hasError, error, analyzeImage, retry, reset } = useColorAnalysis();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } } 
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setShowCamera(true);
-    } catch (err) {
-      console.error('Camera error:', err);
+  // Rotate messages during analysis
+  useState(() => {
+    if (isAnalyzing) {
+      const interval = setInterval(() => {
+        setMessageIndex(prev => (prev + 1) % ANALYSIS_MESSAGES.length);
+      }, 2000);
+      return () => clearInterval(interval);
     }
-  };
+    setMessageIndex(0);
+  });
 
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
+  const handleCameraCapture = (imageBase64: string) => {
+    setCapturedImage(imageBase64);
     setShowCamera(false);
-  }, []);
-
-  const capturePhoto = () => {
-    if (!videoRef.current) return;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
-    
-    if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0);
-      const imageData = canvas.toDataURL('image/jpeg', 0.8);
-      setCapturedImage(imageData);
-      stopCamera();
-      handleAnalyze(imageData);
-    }
+    setShowPreview(true);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,20 +66,36 @@ export function ColorAnalysis({
     reader.onload = (e) => {
       const imageData = e.target?.result as string;
       setCapturedImage(imageData);
-      handleAnalyze(imageData);
+      setShowPreview(true);
     };
     reader.readAsDataURL(file);
   };
 
-  const handleAnalyze = async (imageBase64: string) => {
-    const analysisResult = await analyzeImage(imageBase64);
+  const handleConfirmPhoto = async () => {
+    if (!capturedImage) return;
+    setShowPreview(false);
+    
+    const analysisResult = await analyzeImage(capturedImage);
     if (analysisResult && onComplete) {
       onComplete(analysisResult);
     }
   };
 
-  const handleRetry = () => {
+  const handleRetakePhoto = () => {
+    setShowPreview(false);
     setCapturedImage(null);
+  };
+
+  const handleRetry = async () => {
+    const analysisResult = await retry();
+    if (analysisResult && onComplete) {
+      onComplete(analysisResult);
+    }
+  };
+
+  const handleNewAnalysis = () => {
+    setCapturedImage(null);
+    setShowPreview(false);
     reset();
   };
 
@@ -103,14 +111,61 @@ export function ColorAnalysis({
       <ColorAnalysisResult 
         result={result}
         capturedImage={capturedImage}
-        onRetry={handleRetry}
+        onRetry={handleNewAnalysis}
         onSave={showSaveButton ? handleSave : undefined}
         demoMode={demoMode}
       />
     );
   }
 
-  // Show analyzing state
+  // Show error state
+  if (hasError && !isAnalyzing) {
+    return (
+      <motion.div
+        className="text-center py-8"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center">
+          <AlertTriangle className="w-10 h-10 text-destructive" />
+        </div>
+        
+        {capturedImage && (
+          <div className="w-24 h-24 mx-auto mb-4 rounded-2xl overflow-hidden shadow-soft opacity-60">
+            <img src={capturedImage} alt="Sua foto" className="w-full h-full object-cover" />
+          </div>
+        )}
+        
+        <h3 className="font-display text-xl font-semibold mb-2">
+          Não foi possível analisar
+        </h3>
+        <p className="text-sm text-muted-foreground mb-6 max-w-xs mx-auto">
+          {error || 'Tente com uma foto mais clara, com luz natural no rosto.'}
+        </p>
+        
+        <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-sm mx-auto">
+          <Button
+            size="lg"
+            onClick={handleRetry}
+            className="gradient-primary text-primary-foreground shadow-glow"
+          >
+            <RotateCcw className="w-5 h-5 mr-2" />
+            Tentar novamente
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={handleNewAnalysis}
+          >
+            <Camera className="w-5 h-5 mr-2" />
+            Nova foto
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Show analyzing state with rotating messages
   if (isAnalyzing) {
     return (
       <motion.div
@@ -132,16 +187,83 @@ export function ColorAnalysis({
           </div>
         )}
         
-        <motion.p
-          className="text-lg font-display text-foreground"
-          animate={{ opacity: [1, 0.5, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        >
-          Analisando seu tom de pele e olhos...
-        </motion.p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Isso leva alguns segundos
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={messageIndex}
+            className="text-lg font-display text-foreground"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+          >
+            {ANALYSIS_MESSAGES[messageIndex]}
+          </motion.p>
+        </AnimatePresence>
+        
+        <p className="text-sm text-muted-foreground mt-3">
+          Isso leva cerca de 10 segundos
         </p>
+
+        {/* Progress indicator */}
+        <div className="w-48 mx-auto mt-6">
+          <motion.div 
+            className="h-1 bg-secondary rounded-full overflow-hidden"
+          >
+            <motion.div
+              className="h-full bg-primary rounded-full"
+              initial={{ width: '0%' }}
+              animate={{ width: '90%' }}
+              transition={{ duration: 10, ease: 'linear' }}
+            />
+          </motion.div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Show preview for confirmation
+  if (showPreview && capturedImage) {
+    return (
+      <motion.div
+        className="text-center"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+      >
+        <h3 className="font-display text-xl font-semibold mb-4">
+          Confirme sua foto
+        </h3>
+        
+        <div className="relative w-64 h-64 mx-auto mb-6 rounded-2xl overflow-hidden shadow-lg">
+          <img 
+            src={capturedImage} 
+            alt="Sua foto" 
+            className="w-full h-full object-cover" 
+          />
+        </div>
+        
+        <p className="text-sm text-muted-foreground mb-6 max-w-xs mx-auto">
+          Certifique-se que seu rosto está bem iluminado e sem maquiagem pesada para uma análise mais precisa.
+        </p>
+        
+        <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-sm mx-auto">
+          <Button
+            size="lg"
+            onClick={handleConfirmPhoto}
+            className="flex-1 gradient-primary text-primary-foreground shadow-glow"
+          >
+            <Sparkles className="w-5 h-5 mr-2" />
+            Usar esta foto
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={handleRetakePhoto}
+            className="flex-1"
+          >
+            <RotateCcw className="w-5 h-5 mr-2" />
+            Tirar outra
+          </Button>
+        </div>
       </motion.div>
     );
   }
@@ -149,49 +271,10 @@ export function ColorAnalysis({
   // Show camera
   if (showCamera) {
     return (
-      <motion.div
-        className="relative"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        <div className="relative rounded-2xl overflow-hidden bg-black aspect-square max-w-sm mx-auto">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-          
-          {/* Overlay guide */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-48 h-56 border-2 border-white/50 rounded-full" />
-          </div>
-          
-          {/* Close button */}
-          <button
-            onClick={stopCamera}
-            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        
-        <div className="flex justify-center mt-4">
-          <Button
-            size="lg"
-            onClick={capturePhoto}
-            className="gradient-primary text-primary-foreground shadow-glow px-8"
-          >
-            <Camera className="w-5 h-5 mr-2" />
-            Capturar
-          </Button>
-        </div>
-        
-        <p className="text-center text-sm text-muted-foreground mt-3">
-          Posicione seu rosto dentro do círculo, com luz natural
-        </p>
-      </motion.div>
+      <ChromaticCameraCapture
+        onCapture={handleCameraCapture}
+        onCancel={() => setShowCamera(false)}
+      />
     );
   }
 
@@ -202,6 +285,38 @@ export function ColorAnalysis({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
     >
+      {/* Login warning for non-authenticated users */}
+      {!user && !demoMode && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 max-w-sm mx-auto"
+        >
+          <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+            Faça login para salvar sua paleta permanentemente
+          </p>
+          <div className="flex gap-2 justify-center">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate('/auth')}
+              className="text-xs"
+            >
+              <LogIn className="w-3 h-3 mr-1" />
+              Fazer login
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs text-muted-foreground"
+              onClick={() => {}}
+            >
+              Continuar sem login
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
       <motion.div
         className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary/10 to-gold/10 flex items-center justify-center"
         animate={{ scale: [1, 1.05, 1] }}
@@ -220,7 +335,7 @@ export function ColorAnalysis({
       <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-sm mx-auto">
         <Button
           size="lg"
-          onClick={startCamera}
+          onClick={() => setShowCamera(true)}
           className="flex-1 gradient-primary text-primary-foreground shadow-glow"
         >
           <Camera className="w-5 h-5 mr-2" />
@@ -230,7 +345,7 @@ export function ColorAnalysis({
         <Button
           size="lg"
           variant="outline"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => document.getElementById('color-analysis-file-input')?.click()}
           className="flex-1"
         >
           <Upload className="w-5 h-5 mr-2" />
@@ -239,7 +354,7 @@ export function ColorAnalysis({
       </div>
 
       <input
-        ref={fileInputRef}
+        id="color-analysis-file-input"
         type="file"
         accept="image/*"
         onChange={handleFileUpload}

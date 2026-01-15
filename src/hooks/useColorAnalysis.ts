@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
@@ -22,10 +22,16 @@ export function useColorAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<ColorAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
+  const [lastImageBase64, setLastImageBase64] = useState<string | null>(null);
 
-  const analyzeImage = async (imageBase64: string): Promise<ColorAnalysisResult | null> => {
+  const analyzeImage = async (imageBase64: string, retryCount = 0): Promise<ColorAnalysisResult | null> => {
     setIsAnalyzing(true);
     setError(null);
+    setHasError(false);
+    setLastImageBase64(imageBase64);
+
+    const MAX_RETRIES = 2;
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -37,6 +43,12 @@ export function useColorAnalysis() {
       });
 
       if (fnError) {
+        // Retry on 500 errors
+        if (fnError.message?.includes('500') && retryCount < MAX_RETRIES) {
+          console.log(`[ColorAnalysis] Retry ${retryCount + 1}/${MAX_RETRIES}`);
+          await new Promise(resolve => setTimeout(resolve, 1500 * (retryCount + 1)));
+          return analyzeImage(imageBase64, retryCount + 1);
+        }
         throw new Error(fnError.message);
       }
 
@@ -50,12 +62,21 @@ export function useColorAnalysis() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao analisar imagem';
       setError(message);
+      setHasError(true);
       toast.error(message);
       return null;
     } finally {
       setIsAnalyzing(false);
     }
   };
+
+  const retry = useCallback(async (): Promise<ColorAnalysisResult | null> => {
+    if (!lastImageBase64) {
+      toast.error('Nenhuma imagem para tentar novamente');
+      return null;
+    }
+    return analyzeImage(lastImageBase64);
+  }, [lastImageBase64]);
 
   const saveToProfile = async (analysis: ColorAnalysisResult) => {
     if (!user) {
@@ -111,13 +132,17 @@ export function useColorAnalysis() {
   const reset = () => {
     setResult(null);
     setError(null);
+    setHasError(false);
+    setLastImageBase64(null);
   };
 
   return {
     isAnalyzing,
     result,
     error,
+    hasError,
     analyzeImage,
+    retry,
     saveToProfile,
     loadFromProfile,
     reset,
