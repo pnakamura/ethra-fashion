@@ -182,9 +182,24 @@ Retorne APENAS JSON válido:
       "items": ["uuid1", "uuid2", "uuid3"],
       "explanation": "Explicação de porque este look funciona para o evento (máx 50 palavras)",
       "styling_tips": "Uma dica de styling ou acessório que complementaria (máx 30 palavras)",
-      "score": 95
+      "score": 95,
+      "color_harmony": {
+        "palette_name": "Nome da paleta cromática do look",
+        "colors_used": ["#hex1", "#hex2"],
+        "harmony_type": "tipo de harmonia (análoga, complementar, monocromática, tríade)"
+      },
+      "weather_consideration": "Consideração sobre o clima se disponível (ex: Tecidos leves para 26°C)",
+      "dress_code_match": "Quão bem o look atende ao dress code (ex: Perfeito para Smart Casual)",
+      "improvements": ["Sugestão de melhoria 1", "Sugestão de melhoria 2"],
+      "event_type_tips": "Dica específica para este tipo de evento (ex: Para casamentos, evite branco)"
     }
-  ]
+  ],
+  "weather": {
+    "temp_min": 20,
+    "temp_max": 28,
+    "rain_probability": 10,
+    "weather_consideration": "Descrição geral sobre o clima para o evento"
+  }
 }`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -196,7 +211,7 @@ Retorne APENAS JSON válido:
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 1200,
+        max_tokens: 2000,
         temperature: 0.7,
       }),
     });
@@ -253,6 +268,7 @@ Retorne APENAS JSON válido:
         suggestions: validSuggestions,
         eventType,
         dressCode,
+        weather: result.weather || null,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

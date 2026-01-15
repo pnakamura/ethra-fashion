@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Calendar, Trash2, MapPin, Clock, Briefcase, PartyPopper, Heart, Users, Shirt, Gem, Plane, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Calendar, MapPin, Clock, Briefcase, PartyPopper, Heart, Users, Shirt, Gem, Plane, Star, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { AddEventSheet } from '@/components/events/AddEventSheet';
+import { EventDetailSheet } from '@/components/events/EventDetailSheet';
 import { useUserEvents, type UserEvent } from '@/hooks/useUserEvents';
 import { toast } from 'sonner';
 
@@ -38,7 +39,8 @@ const eventTypeLabels: Record<string, string> = {
 export default function Events() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const { events, getEventsForDate, deleteEvent, upcomingEvents, isLoading } = useUserEvents();
+  const [selectedEvent, setSelectedEvent] = useState<UserEvent | null>(null);
+  const { events, getEventsForDate, deleteEvent, upcomingEvents, isLoading, refetch } = useUserEvents();
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -48,11 +50,18 @@ export default function Events() {
   const startPadding = monthStart.getDay();
   const paddedDays = [...Array(startPadding).fill(null), ...days];
 
-  const handleDeleteEvent = (eventId: string, eventTitle: string) => {
-    if (confirm(`Excluir "${eventTitle}"?`)) {
-      deleteEvent(eventId);
-      toast.success('Evento excluído');
-    }
+  const handleDeleteEvent = (eventId: string) => {
+    deleteEvent(eventId);
+    toast.success('Evento excluído');
+  };
+
+  const handleEventClick = (event: UserEvent) => {
+    setSelectedEvent(event);
+  };
+
+  const handleEventUpdated = () => {
+    refetch();
+    setSelectedEvent(null);
   };
 
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
@@ -172,11 +181,12 @@ export default function Events() {
                   {selectedDateEvents.map((event) => {
                     const Icon = eventTypeIcons[event.event_type] || Calendar;
                     return (
-                      <motion.div
+                      <motion.button
                         key={event.id}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="p-4 rounded-xl bg-card border border-border dark:border-primary/12 shadow-soft"
+                        onClick={() => handleEventClick(event)}
+                        className="w-full p-4 rounded-xl bg-card border border-border dark:border-primary/12 shadow-soft text-left hover:border-primary/30 transition-colors"
                       >
                         <div className="flex items-start gap-3">
                           <div className="p-2 rounded-full bg-primary/10 dark:bg-primary/20 flex-shrink-0">
@@ -202,19 +212,12 @@ export default function Events() {
                               )}
                             </div>
                             {event.notes && (
-                              <p className="text-xs text-muted-foreground mt-2">{event.notes}</p>
+                              <p className="text-xs text-muted-foreground mt-2 line-clamp-1">{event.notes}</p>
                             )}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="flex-shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteEvent(event.id, event.title)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                         </div>
-                      </motion.div>
+                      </motion.button>
                     );
                   })}
                 </div>
@@ -229,10 +232,12 @@ export default function Events() {
               <div className="space-y-2">
                 {upcomingEvents.slice(0, 5).map((event) => {
                   const Icon = eventTypeIcons[event.event_type] || Calendar;
+                  const hasSuggestions = Boolean(event.ai_suggestions);
                   return (
-                    <div
+                    <button
                       key={event.id}
-                      className="p-3 rounded-xl bg-card border border-border dark:border-primary/12 flex items-center gap-3 shadow-soft"
+                      onClick={() => handleEventClick(event)}
+                      className="w-full p-3 rounded-xl bg-card border border-border dark:border-primary/12 flex items-center gap-3 shadow-soft text-left hover:border-primary/30 transition-colors"
                     >
                       <div className="p-2 rounded-full bg-primary/10 dark:bg-primary/20 flex-shrink-0">
                         <Icon className="w-4 h-4 text-primary" />
@@ -244,7 +249,11 @@ export default function Events() {
                           {event.event_time && ` às ${event.event_time.slice(0, 5)}`}
                         </p>
                       </div>
-                    </div>
+                      {hasSuggestions && (
+                        <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
+                      )}
+                      <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    </button>
                   );
                 })}
               </div>
@@ -271,6 +280,16 @@ export default function Events() {
           )}
         </div>
       </PageContainer>
+      
+      {/* Event Detail Sheet */}
+      <EventDetailSheet
+        event={selectedEvent}
+        isOpen={Boolean(selectedEvent)}
+        onClose={() => setSelectedEvent(null)}
+        onDelete={handleDeleteEvent}
+        onEventUpdated={handleEventUpdated}
+      />
+      
       <BottomNav />
     </>
   );

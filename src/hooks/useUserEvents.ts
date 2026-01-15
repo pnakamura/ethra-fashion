@@ -9,12 +9,20 @@ export interface UserEvent {
   user_id: string;
   title: string;
   event_date: string;
-  event_time?: string;
+  event_time?: string | null;
   event_type: 'meeting' | 'party' | 'date' | 'interview' | 'casual' | 'wedding' | 'travel' | 'work' | 'special';
-  location?: string;
-  notes?: string;
-  is_notified: boolean;
-  created_at: string;
+  location?: string | null;
+  notes?: string | null;
+  is_notified: boolean | null;
+  created_at: string | null;
+  // Extended fields from database
+  dress_code?: string | null;
+  expected_attendees?: string | null;
+  is_special_event?: boolean | null;
+  outfit_id?: string | null;
+  reminder_sent_at?: string | null;
+  ai_suggestions?: any | null;
+  weather_info?: any | null;
 }
 
 export interface CreateEventInput {
@@ -24,6 +32,9 @@ export interface CreateEventInput {
   event_type: UserEvent['event_type'];
   location?: string;
   notes?: string;
+  dress_code?: string;
+  expected_attendees?: string;
+  is_special_event?: boolean;
 }
 
 export function useUserEvents() {
