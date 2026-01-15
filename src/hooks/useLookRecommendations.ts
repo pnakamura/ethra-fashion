@@ -55,8 +55,12 @@ export function useLookRecommendations() {
       }
 
       const invokeOnce = async () => {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        
         const { data, error: fnError } = await supabase.functions.invoke('suggest-looks', {
-          body: { occasion, count }
+          body: { occasion, count },
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined
         });
         if (fnError) throw new Error(fnError.message);
         return data;

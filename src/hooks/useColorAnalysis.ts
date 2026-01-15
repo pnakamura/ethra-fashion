@@ -28,8 +28,12 @@ export function useColorAnalysis() {
     setError(null);
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
       const { data, error: fnError } = await supabase.functions.invoke('analyze-colors', {
-        body: { image_base64: imageBase64 }
+        body: { image_base64: imageBase64 },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
       });
 
       if (fnError) {

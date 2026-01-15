@@ -64,12 +64,16 @@ export function useGarmentExtraction() {
         .getPublicUrl(fileName);
 
       // Call the extraction edge function
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
       const response = await supabase.functions.invoke('extract-garment', {
         body: {
           imageUrl: publicUrl,
           sourceType,
           sourceUrl,
         },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
       });
 
       if (response.error) {
@@ -95,12 +99,16 @@ export function useGarmentExtraction() {
 
       // Call the extraction edge function with externalUrl
       // The edge function will fetch the image server-side (bypassing CORS)
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
       const response = await supabase.functions.invoke('extract-garment', {
         body: {
           externalUrl: url,
           sourceType: 'url',
           sourceUrl: url,
         },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
       });
 
       if (response.error) {

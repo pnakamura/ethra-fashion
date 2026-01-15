@@ -69,6 +69,9 @@ export function useTripWeather(): UseTripWeatherResult {
     setError(null);
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
       const { data: result, error: invokeError } = await supabase.functions.invoke(
         'get-trip-weather',
         {
@@ -79,6 +82,7 @@ export function useTripWeather(): UseTripWeatherResult {
             trip_type: params.tripType,
             user_id: params.userId,
           },
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined
         }
       );
 

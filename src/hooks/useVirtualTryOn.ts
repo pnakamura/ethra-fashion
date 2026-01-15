@@ -303,6 +303,9 @@ export function useVirtualTryOn() {
       if (insertError) throw insertError;
 
       // Call the edge function with preprocessed images
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
       const response = await supabase.functions.invoke('virtual-try-on', {
         body: {
           avatarImageUrl: processedAvatarUrl,
@@ -311,6 +314,7 @@ export function useVirtualTryOn() {
           tryOnResultId: tryOnResult.id,
           retryCount,
         },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
       });
 
        if (response.error) {

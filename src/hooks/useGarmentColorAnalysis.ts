@@ -26,8 +26,12 @@ export function useGarmentColorAnalysis() {
     setIsAnalyzing(true);
     
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
       const { data, error } = await supabase.functions.invoke('analyze-garment-colors', {
-        body: { imageBase64 }
+        body: { imageBase64 },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
       });
 
       if (error) throw new Error(error.message);
