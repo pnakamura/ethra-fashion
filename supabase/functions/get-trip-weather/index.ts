@@ -394,8 +394,55 @@ Por favor, analise e crie:
   const data = await response.json();
   console.log("AI response received");
   
+  // Check if response contains an error (AI Gateway may return 200 with error body)
+  if (data.error) {
+    console.error("AI Gateway returned error in body:", JSON.stringify(data));
+    throw new Error(`AI service error: ${data.error.message || 'Unknown error'}`);
+  }
+  
   const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
   if (!toolCall || toolCall.function.name !== "suggest_packing") {
+    // Try to extract from regular content as fallback
+    const content = data.choices?.[0]?.message?.content;
+    if (content) {
+      console.log("Attempting to parse from content fallback");
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.weather_summary || parsed.essential_items) {
+            console.log("Successfully parsed from content fallback");
+            const tempAvg = Math.round((weather.tempMin + weather.tempMax) / 2);
+            const tips: TipsCategories = {
+              essentials: parsed.tips?.essentials || [],
+              local_culture: parsed.tips?.local_culture || [],
+              avoid: parsed.tips?.avoid || [],
+              pro_tips: parsed.tips?.pro_tips || [],
+            };
+            return {
+              weather: {
+                summary: parsed.weather_summary || `Temperatura entre ${weather.tempMin}°C e ${weather.tempMax}°C`,
+                climate_vibe: parsed.climate_vibe || climateVibe,
+                packing_mood: parsed.packing_mood || "Viaje leve, viaje com estilo!",
+                temp_avg: tempAvg,
+                temp_min: Math.round(weather.tempMin),
+                temp_max: Math.round(weather.tempMax),
+                rain_probability: Math.round(weather.precipitationSum),
+                conditions: weather.conditions,
+              },
+              trip_brief: parsed.trip_brief || "",
+              recommendations: {
+                essential_items: parsed.essential_items || [],
+                suggested_looks: parsed.suggested_looks || [],
+                tips,
+              },
+            };
+          }
+        }
+      } catch (parseErr) {
+        console.error("Content fallback parse failed:", parseErr);
+      }
+    }
     console.error("Unexpected AI response format:", JSON.stringify(data));
     throw new Error("Invalid AI response format");
   }
