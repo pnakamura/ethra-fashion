@@ -116,8 +116,8 @@ const BENCHMARK_MODELS: BenchmarkModel[] = [
   },
 ] as const;
 
-// Timeout constants - Extended to accommodate sequential Replicate delays
-const BENCHMARK_TIMEOUT_MS = 360000; // 6 minutes (12s delay × 3 Replicate models + processing)
+// Timeout constants - Reduced with parallel execution by provider groups
+const BENCHMARK_TIMEOUT_MS = 180000; // 3 minutes (parallel execution)
 
 interface ModelBenchmarkProps {
   avatarImageUrl?: string;
@@ -197,6 +197,14 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
     toast.info('Benchmark cancelado');
   };
 
+  // Helper to categorize models by provider
+  const categorizeModels = (models: string[]) => {
+    const falModels = models.filter(m => ['leffa'].includes(m));
+    const googleModels = models.filter(m => ['vertex-ai', 'gemini'].includes(m));
+    const replicateModels = models.filter(m => ['idm-vton', 'seedream-4.5', 'seedream-4.0'].includes(m));
+    return { falModels, googleModels, replicateModels };
+  };
+
   const runBenchmark = async () => {
     if (!avatarImageUrl) {
       toast.error('Configure um avatar primeiro');
@@ -220,13 +228,14 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
     setBenchmarkSummary(null);
     setElapsedTime(0);
 
-    // Set global timeout (6 minutes to accommodate sequential delays)
+    // Set global timeout (3 minutes - shorter with parallel execution)
+    const PARALLEL_TIMEOUT_MS = 180000;
     timeoutIdRef.current = setTimeout(() => {
       abortControllerRef.current?.abort();
-      toast.error('Timeout: O benchmark demorou mais de 6 minutos');
+      toast.error('Timeout: O benchmark demorou mais de 3 minutos');
       setIsRunning(false);
       setIsPreprocessing(false);
-    }, BENCHMARK_TIMEOUT_MS);
+    }, PARALLEL_TIMEOUT_MS);
 
     try {
       // Pre-process avatar if needed
@@ -266,35 +275,114 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
       
       setProgress(15);
 
-      // Simulate progress updates (slower due to sequential processing)
+      // Simulate progress updates
       progressIntervalRef.current = setInterval(() => {
-        setProgress(prev => Math.min(prev + 2, 85));
-      }, 3000);
+        setProgress(prev => Math.min(prev + 3, 85));
+      }, 2000);
 
-      const { data, error } = await supabase.functions.invoke('test-vto-models', {
-        body: {
-          avatarImageUrl: processedAvatarUrl,
-          garmentImageUrl: testGarmentUrl,
-          category: 'upper_body',
-          models: selectedModels,
-        },
-      });
+      // Split models by provider for parallel execution
+      const { falModels, googleModels, replicateModels } = categorizeModels(selectedModels);
+      
+      const baseBody = {
+        avatarImageUrl: processedAvatarUrl,
+        garmentImageUrl: testGarmentUrl,
+        category: 'upper_body',
+      };
 
+      // Execute provider groups in parallel
+      const promises: Promise<{ data: BenchmarkResponse | null; error: Error | null; group: string }>[] = [];
+      
+      if (falModels.length > 0) {
+        console.log('[Benchmark] Starting FAL.AI group:', falModels);
+        promises.push(
+          supabase.functions.invoke('test-vto-models', {
+            body: { ...baseBody, models: falModels },
+          }).then(res => ({ data: res.data as BenchmarkResponse, error: res.error, group: 'fal' }))
+        );
+      }
+      
+      if (googleModels.length > 0) {
+        console.log('[Benchmark] Starting Google group:', googleModels);
+        promises.push(
+          supabase.functions.invoke('test-vto-models', {
+            body: { ...baseBody, models: googleModels },
+          }).then(res => ({ data: res.data as BenchmarkResponse, error: res.error, group: 'google' }))
+        );
+      }
+      
+      if (replicateModels.length > 0) {
+        console.log('[Benchmark] Starting Replicate group:', replicateModels);
+        promises.push(
+          supabase.functions.invoke('test-vto-models', {
+            body: { ...baseBody, models: replicateModels },
+          }).then(res => ({ data: res.data as BenchmarkResponse, error: res.error, group: 'replicate' }))
+        );
+      }
+
+      // Wait for all groups to complete
+      const settledResults = await Promise.allSettled(promises);
+      
       // Cleanup timers
       if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       
       setProgress(100);
 
-      if (error) {
-        throw error;
+      // Aggregate results from all groups
+      const allResults: ModelResult[] = [];
+      let totalTimeMs = 0;
+      let hasAnySuccess = false;
+
+      for (const settled of settledResults) {
+        if (settled.status === 'fulfilled') {
+          const { data, error, group } = settled.value;
+          if (error) {
+            console.error(`[Benchmark] ${group} group error:`, error);
+          } else if (data?.results) {
+            allResults.push(...data.results);
+            totalTimeMs = Math.max(totalTimeMs, data.totalTimeMs || 0);
+            if (data.summary?.success > 0) hasAnySuccess = true;
+          }
+        } else {
+          console.error('[Benchmark] Promise rejected:', settled.reason);
+        }
       }
 
-      const response = data as BenchmarkResponse;
-      setResults(response.results);
-      setBenchmarkSummary(response);
+      if (allResults.length === 0) {
+        throw new Error('Nenhum resultado retornado');
+      }
+
+      // Build aggregated summary
+      const successCount = allResults.filter(r => r.status === 'success').length;
+      const failedCount = allResults.filter(r => r.status === 'failed').length;
+      const skippedCount = allResults.filter(r => r.status === 'skipped').length;
+      const processingCount = allResults.filter(r => r.status === 'processing').length;
       
-      toast.success(`Benchmark concluído: ${response.summary.success}/${response.results.length} modelos bem-sucedidos`);
+      const successfulResults = allResults.filter(r => r.status === 'success' && r.processingTimeMs);
+      const fastestModel = successfulResults.length > 0 
+        ? successfulResults.reduce((a, b) => (a.processingTimeMs! < b.processingTimeMs! ? a : b)).model
+        : null;
+
+      const aggregatedResponse: BenchmarkResponse = {
+        success: hasAnySuccess,
+        category: 'upper_body',
+        results: allResults,
+        totalTimeMs,
+        summary: {
+          success: successCount,
+          failed: failedCount,
+          skipped: skippedCount,
+          fastestModel,
+        },
+      };
+
+      setResults(allResults);
+      setBenchmarkSummary(aggregatedResponse);
+      
+      const statusMsg = processingCount > 0 
+        ? `${successCount} OK, ${processingCount} ainda processando`
+        : `${successCount}/${allResults.length} modelos bem-sucedidos`;
+      toast.success(`Benchmark concluído: ${statusMsg}`);
     } catch (error: any) {
       // Cleanup timers on error
       if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
@@ -305,7 +393,7 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
       if (error.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
         // Already handled by timeout or cancel
       } else {
-        toast.error('Erro ao executar benchmark');
+        toast.error(error.message || 'Erro ao executar benchmark');
       }
     } finally {
       setIsRunning(false);
@@ -690,7 +778,7 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
               <p className="text-xs text-muted-foreground">
                 {isPreprocessing 
                   ? 'Otimizando avatar para melhores resultados...'
-                  : 'Execução sequencial: Replicate (12s) → Google (5s) — prioriza qualidade sobre velocidade'}
+                  : 'Execução paralela por provedor — FAL.AI, Google e Replicate simultâneos'}
               </p>
               <p className="text-xs text-muted-foreground">
                 Timeout: {Math.max(0, Math.floor((BENCHMARK_TIMEOUT_MS - elapsedTime) / 1000))}s
