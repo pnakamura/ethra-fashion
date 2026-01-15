@@ -15,16 +15,19 @@ import {
 import { WeatherPreview } from './WeatherPreview';
 import { SuggestedLooks } from './SuggestedLooks';
 import { TripBrief } from './TripBrief';
+import { PackingChecklist, type PackingList, type PackingItem } from './PackingChecklist';
+import { MissingItemsSuggestion } from './MissingItemsSuggestion';
 import { useTripWeather, TripWeatherResult } from '@/hooks/useTripWeather';
 
 interface TripPlannerProps {
-  wardrobeItems: { id: string; image_url: string; category: string }[];
+  wardrobeItems: { id: string; image_url: string; category: string; name?: string }[];
   onCreateTrip: (trip: {
     destination: string;
     start_date: string;
     end_date: string;
     trip_type: string;
     packed_items: string[];
+    packing_list?: PackingList;
   }) => void;
   userId?: string;
 }
@@ -83,6 +86,7 @@ export function TripPlanner({ wardrobeItems, onCreateTrip, userId }: TripPlanner
       end_date: endDate,
       trip_type: tripType,
       packed_items: packedItems,
+      packing_list: weatherData?.packing_list,
     });
     setDestination('');
     setStartDate('');
@@ -128,6 +132,27 @@ export function TripPlanner({ wardrobeItems, onCreateTrip, userId }: TripPlanner
   // Packing step - with weather info
   if (step === 'packing') {
     const essentialItems = weatherData?.recommendations.essential_items || [];
+    const packingList = weatherData?.packing_list;
+    
+    // Calculate missing items from packing list
+    const missingItems: PackingItem[] = packingList 
+      ? [
+          ...packingList.roupas,
+          ...packingList.calcados,
+          ...packingList.acessorios,
+          ...packingList.chapeus,
+        ].filter(item => !item.in_wardrobe)
+      : [];
+    
+    // Calculate in-wardrobe items count
+    const inWardrobeItems = packingList 
+      ? [
+          ...packingList.roupas,
+          ...packingList.calcados,
+          ...packingList.acessorios,
+          ...packingList.chapeus,
+        ].filter(item => item.in_wardrobe).length
+      : 0;
     
     return (
       <motion.div
@@ -159,6 +184,21 @@ export function TripPlanner({ wardrobeItems, onCreateTrip, userId }: TripPlanner
           />
         )}
 
+        {/* Packing Checklist - New Categorized UI */}
+        {packingList && (
+          <PackingChecklist
+            packingList={packingList}
+            wardrobeItems={wardrobeItems}
+            selectedItems={packedItems}
+            onToggleItem={toggleItem}
+          />
+        )}
+
+        {/* Missing Items Suggestions */}
+        {missingItems.length > 0 && (
+          <MissingItemsSuggestion items={missingItems} />
+        )}
+
         {/* Suggested Looks */}
         {weatherData && weatherData.recommendations.suggested_looks.length > 0 && (
           <SuggestedLooks
@@ -169,63 +209,65 @@ export function TripPlanner({ wardrobeItems, onCreateTrip, userId }: TripPlanner
           />
         )}
 
-        {/* Items grid */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium">Todas as Peças</h4>
-            <span className="text-xs text-muted-foreground">
-              {packedItems.length} selecionadas
-            </span>
-          </div>
-          
-          <div className="grid grid-cols-3 gap-3">
-            <AnimatePresence>
-              {wardrobeItems.map((item, index) => {
-                const isEssential = essentialItems.includes(item.id);
-                const isSelected = packedItems.includes(item.id);
-                
-                return (
-                  <motion.button
-                    key={item.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: index * 0.02 }}
-                    onClick={() => toggleItem(item.id)}
-                    className={`relative aspect-square rounded-xl overflow-hidden transition-all ${
-                      isSelected
-                        ? 'ring-2 ring-primary ring-offset-2'
-                        : isEssential
-                        ? 'ring-2 ring-amber-400/50'
-                        : ''
-                    }`}
-                  >
-                    <img
-                      src={item.image_url}
-                      alt={item.category}
-                      className="w-full h-full object-cover"
-                    />
-                    
-                    {/* Essential badge */}
-                    {isEssential && !isSelected && (
-                      <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded-full bg-amber-400 text-[10px] font-medium text-amber-900">
-                        Aura ✨
-                      </div>
-                    )}
-                    
-                    {/* Selected overlay */}
-                    {isSelected && (
-                      <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="w-4 h-4 text-primary-foreground" />
+        {/* Fallback: Simple grid if no packing list */}
+        {!packingList && wardrobeItems.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium">Todas as Peças</h4>
+              <span className="text-xs text-muted-foreground">
+                {packedItems.length} selecionadas
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-3">
+              <AnimatePresence>
+                {wardrobeItems.map((item, index) => {
+                  const isEssential = essentialItems.includes(item.id);
+                  const isSelected = packedItems.includes(item.id);
+                  
+                  return (
+                    <motion.button
+                      key={item.id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.02 }}
+                      onClick={() => toggleItem(item.id)}
+                      className={`relative aspect-square rounded-xl overflow-hidden transition-all ${
+                        isSelected
+                          ? 'ring-2 ring-primary ring-offset-2'
+                          : isEssential
+                          ? 'ring-2 ring-amber-400/50'
+                          : ''
+                      }`}
+                    >
+                      <img
+                        src={item.image_url}
+                        alt={item.category}
+                        className="w-full h-full object-cover"
+                      />
+                      
+                      {/* Essential badge */}
+                      {isEssential && !isSelected && (
+                        <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded-full bg-amber-400 text-[10px] font-medium text-amber-900">
+                          Aura ✨
                         </div>
-                      </div>
-                    )}
-                  </motion.button>
-                );
-              })}
-            </AnimatePresence>
+                      )}
+                      
+                      {/* Selected overlay */}
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="w-4 h-4 text-primary-foreground" />
+                          </div>
+                        </div>
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
           </div>
-        </div>
+        )}
 
         {wardrobeItems.length === 0 && (
           <Card className="p-8 text-center border-0 shadow-soft">
@@ -233,6 +275,23 @@ export function TripPlanner({ wardrobeItems, onCreateTrip, userId }: TripPlanner
               Adicione peças ao seu closet para montar sua mala
             </p>
           </Card>
+        )}
+
+        {/* Summary Stats */}
+        {packingList && (
+          <div className="flex items-center justify-center gap-4 py-2 text-sm">
+            <span className="text-emerald-600 font-medium">
+              {inWardrobeItems} peças do closet
+            </span>
+            <span className="text-muted-foreground">•</span>
+            <span className="text-amber-600 font-medium">
+              {missingItems.length} sugestões
+            </span>
+            <span className="text-muted-foreground">•</span>
+            <span className="text-primary font-medium">
+              {packedItems.length} selecionadas
+            </span>
+          </div>
         )}
 
         {/* Actions */}

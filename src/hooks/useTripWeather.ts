@@ -28,6 +28,26 @@ export interface TipsCategories {
   pro_tips: string[];
 }
 
+export interface PackingItem {
+  id?: string;
+  name: string;
+  category: string;
+  quantity: number;
+  colors: string[];
+  styles: string[];
+  fabrics: string[];
+  in_wardrobe: boolean;
+  image_url?: string;
+  reason: string;
+}
+
+export interface PackingList {
+  roupas: PackingItem[];
+  calcados: PackingItem[];
+  acessorios: PackingItem[];
+  chapeus: PackingItem[];
+}
+
 export interface TripWeatherResult {
   weather: WeatherData;
   trip_brief: string;
@@ -36,6 +56,7 @@ export interface TripWeatherResult {
     suggested_looks: SuggestedLook[];
     tips: TipsCategories;
   };
+  packing_list?: PackingList;
 }
 
 interface UseTripWeatherResult {
@@ -124,6 +145,7 @@ export function useTripWeather(): UseTripWeatherResult {
             pro_tips: result.recommendations?.tips?.pro_tips || [],
           },
         },
+        packing_list: result.packing_list || undefined,
       };
 
       setData(normalizedResult);

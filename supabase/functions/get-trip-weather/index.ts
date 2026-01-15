@@ -20,6 +20,26 @@ interface WardrobeItem {
   image_url: string;
 }
 
+interface PackingItem {
+  id?: string;
+  name: string;
+  category: string;
+  quantity: number;
+  colors: string[];
+  styles: string[];
+  fabrics: string[];
+  in_wardrobe: boolean;
+  image_url?: string;
+  reason: string;
+}
+
+interface PackingList {
+  roupas: PackingItem[];
+  calcados: PackingItem[];
+  acessorios: PackingItem[];
+  chapeus: PackingItem[];
+}
+
 interface SuggestedLook {
   name: string;
   occasion: string;
@@ -54,6 +74,7 @@ interface WeatherRecommendations {
     suggested_looks: SuggestedLook[];
     tips: TipsCategories;
   };
+  packing_list: PackingList;
 }
 
 // Map trip type to more descriptive Portuguese label
@@ -309,7 +330,16 @@ REGRAS DE OURO:
 - Use linguagem que pareça uma conversa entre amigas, não um manual técnico
 - Cada look precisa ter um style_tip específico e útil
 
-IMPORTANTE: Os IDs das peças nos suggested_looks DEVEM ser IDs válidos do guarda-roupa fornecido.`;
+IMPORTANTE SOBRE PACKING_LIST:
+- Analise cuidadosamente o guarda-roupa fornecido
+- Para itens que existem no closet, use o ID exato e marque in_wardrobe=true
+- Para itens que NÃO existem, crie sugestões com in_wardrobe=false
+- Especifique quantidades baseadas na duração da viagem
+- Sugira cores, estilos e tecidos ideais para o clima
+- Organize em: roupas, calcados, acessorios, chapeus
+- Cada item precisa de uma razão clara (porque levar/comprar)
+
+Os IDs das peças DEVEM ser IDs válidos do guarda-roupa fornecido quando in_wardrobe=true.`;
 
   const userPrompt = `
 🌍 DESTINO: ${destination}
@@ -327,30 +357,37 @@ ${JSON.stringify(itemsSummary, null, 2)}
 
 Por favor, analise e crie:
 
-1. **weather_summary**: Um resumo CRIATIVO e DIVERTIDO do clima em até 2 frases. Não seja técnica, seja amiga!
-   Exemplo bom: "Salvador te recebe de braços abertos com aquele calor gostoso de verão! ☀️"
-   Exemplo ruim: "Temperaturas entre 24°C e 31°C com possibilidade de precipitação."
+1. **weather_summary**: Um resumo CRIATIVO e DIVERTIDO do clima em até 2 frases.
 
 2. **climate_vibe**: Use "${climateVibe}" ou sugira outro se achar melhor
 
-3. **packing_mood**: Uma frase inspiracional/mantra para a mala (ex: "Menos peso, mais leveza. Sua mala vai ser leve como a brisa do mar!")
+3. **packing_mood**: Uma frase inspiracional/mantra para a mala
 
-4. **trip_brief**: Um parágrafo editorial (3-4 frases) sobre a vibe do destino e como o estilo deve acompanhar. Mencione lugares específicos, cultura local e atividades típicas.
+4. **trip_brief**: Um parágrafo editorial (3-4 frases) sobre a vibe do destino
 
-5. **essential_items**: IDs das peças ESSENCIAIS do guarda-roupa (máximo 8)
+5. **packing_list**: Lista categorizada de itens para a mala:
+   - roupas: camisas, calças, vestidos, etc.
+   - calcados: tênis, sandálias, sapatos, etc.
+   - acessorios: bolsas, cintos, óculos, relógios, etc.
+   - chapeus: bonés, chapéus, lenços, etc.
+   
+   Para cada item inclua:
+   - id: ID do guarda-roupa se existir, senão omita
+   - name: Nome descritivo (ex: "Vestido de Linho Branco")
+   - category: Subcategoria específica
+   - quantity: Quantidade recomendada
+   - colors: Array de cores em HEX (ex: ["#FFFFFF", "#F5F5DC"])
+   - styles: Array de estilos (casual, formal, esportivo, etc.)
+   - fabrics: Array de tecidos ideais (linho, algodão, seda, etc.)
+   - in_wardrobe: true se a peça existe no closet, false se é sugestão
+   - image_url: URL da imagem se do closet
+   - reason: Por que essa peça é recomendada para a viagem
 
-6. **suggested_looks**: 3 looks criativos com:
-   - name: Nome criativo e evocativo relacionado ao destino/atividade
-   - occasion: Quando usar (passeio, noite, praia, jantar, etc.)
-   - items: IDs das peças (use apenas IDs válidos do guarda-roupa!)
-   - description: Descrição editorial curta e charmosa
-   - style_tip: Dica específica de styling para este look
+6. **essential_items**: IDs das peças ESSENCIAIS do guarda-roupa (máximo 8)
 
-7. **tips**: Categorize em:
-   - essentials: 2 dicas sobre itens/cuidados essenciais
-   - local_culture: 2 dicas sobre a cultura local e estilo do lugar
-   - avoid: 2 coisas para evitar levar/usar
-   - pro_tips: 2 dicas de expert/truques`;
+7. **suggested_looks**: 3 looks criativos com nome, ocasião, items, description, style_tip
+
+8. **tips**: Categorize em essentials, local_culture, avoid, pro_tips (2 cada)`;
 
   const payload = {
     model: "google/gemini-3-flash-preview",
@@ -363,25 +400,108 @@ Por favor, analise e crie:
         type: "function",
         function: {
           name: "suggest_packing",
-          description: "Retorna sugestões de peças e looks para a viagem com tom editorial e divertido",
+          description: "Retorna sugestões de peças e looks para a viagem com checklist categorizado",
           parameters: {
             type: "object",
             properties: {
               weather_summary: {
                 type: "string",
-                description: "Resumo criativo e amigável do clima em português, com personalidade",
+                description: "Resumo criativo e amigável do clima em português",
               },
               climate_vibe: {
                 type: "string",
-                description: "Vibe climática: tropical_beach, winter_wonderland, warm_vibes, mild_comfort, cozy_layers, rainy_adventure, versatile_weather",
+                description: "Vibe climática",
               },
               packing_mood: {
                 type: "string",
-                description: "Frase inspiracional/mantra para guiar a montagem da mala",
+                description: "Frase inspiracional/mantra para a mala",
               },
               trip_brief: {
                 type: "string",
-                description: "Parágrafo editorial sobre o destino, cultura e estilo esperado",
+                description: "Parágrafo editorial sobre o destino",
+              },
+              packing_list: {
+                type: "object",
+                description: "Lista categorizada de itens para a mala",
+                properties: {
+                  roupas: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string", description: "ID do guarda-roupa se existir" },
+                        name: { type: "string" },
+                        category: { type: "string" },
+                        quantity: { type: "number" },
+                        colors: { type: "array", items: { type: "string" } },
+                        styles: { type: "array", items: { type: "string" } },
+                        fabrics: { type: "array", items: { type: "string" } },
+                        in_wardrobe: { type: "boolean" },
+                        image_url: { type: "string" },
+                        reason: { type: "string" },
+                      },
+                      required: ["name", "category", "quantity", "colors", "styles", "fabrics", "in_wardrobe", "reason"],
+                    },
+                  },
+                  calcados: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string" },
+                        name: { type: "string" },
+                        category: { type: "string" },
+                        quantity: { type: "number" },
+                        colors: { type: "array", items: { type: "string" } },
+                        styles: { type: "array", items: { type: "string" } },
+                        fabrics: { type: "array", items: { type: "string" } },
+                        in_wardrobe: { type: "boolean" },
+                        image_url: { type: "string" },
+                        reason: { type: "string" },
+                      },
+                      required: ["name", "category", "quantity", "colors", "styles", "fabrics", "in_wardrobe", "reason"],
+                    },
+                  },
+                  acessorios: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string" },
+                        name: { type: "string" },
+                        category: { type: "string" },
+                        quantity: { type: "number" },
+                        colors: { type: "array", items: { type: "string" } },
+                        styles: { type: "array", items: { type: "string" } },
+                        fabrics: { type: "array", items: { type: "string" } },
+                        in_wardrobe: { type: "boolean" },
+                        image_url: { type: "string" },
+                        reason: { type: "string" },
+                      },
+                      required: ["name", "category", "quantity", "colors", "styles", "fabrics", "in_wardrobe", "reason"],
+                    },
+                  },
+                  chapeus: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string" },
+                        name: { type: "string" },
+                        category: { type: "string" },
+                        quantity: { type: "number" },
+                        colors: { type: "array", items: { type: "string" } },
+                        styles: { type: "array", items: { type: "string" } },
+                        fabrics: { type: "array", items: { type: "string" } },
+                        in_wardrobe: { type: "boolean" },
+                        image_url: { type: "string" },
+                        reason: { type: "string" },
+                      },
+                      required: ["name", "category", "quantity", "colors", "styles", "fabrics", "in_wardrobe", "reason"],
+                    },
+                  },
+                },
+                required: ["roupas", "calcados", "acessorios", "chapeus"],
               },
               essential_items: {
                 type: "array",
@@ -393,11 +513,11 @@ Por favor, analise e crie:
                 items: {
                   type: "object",
                   properties: {
-                    name: { type: "string", description: "Nome criativo do look (ex: Sunset em Ipanema)" },
-                    occasion: { type: "string", description: "Ocasião do look (passeio, jantar, praia, noite)" },
-                    items: { type: "array", items: { type: "string" }, description: "IDs das peças do look" },
-                    description: { type: "string", description: "Descrição editorial do look" },
-                    style_tip: { type: "string", description: "Dica de styling específica para este look" },
+                    name: { type: "string" },
+                    occasion: { type: "string" },
+                    items: { type: "array", items: { type: "string" } },
+                    description: { type: "string" },
+                    style_tip: { type: "string" },
                   },
                   required: ["name", "occasion", "items", "description", "style_tip"],
                 },
@@ -405,15 +525,15 @@ Por favor, analise e crie:
               tips: {
                 type: "object",
                 properties: {
-                  essentials: { type: "array", items: { type: "string" }, description: "Dicas sobre itens essenciais" },
-                  local_culture: { type: "array", items: { type: "string" }, description: "Dicas sobre cultura e estilo local" },
-                  avoid: { type: "array", items: { type: "string" }, description: "O que evitar levar/usar" },
-                  pro_tips: { type: "array", items: { type: "string" }, description: "Dicas de expert" },
+                  essentials: { type: "array", items: { type: "string" } },
+                  local_culture: { type: "array", items: { type: "string" } },
+                  avoid: { type: "array", items: { type: "string" } },
+                  pro_tips: { type: "array", items: { type: "string" } },
                 },
                 required: ["essentials", "local_culture", "avoid", "pro_tips"],
               },
             },
-            required: ["weather_summary", "climate_vibe", "packing_mood", "trip_brief", "essential_items", "suggested_looks", "tips"],
+            required: ["weather_summary", "climate_vibe", "packing_mood", "trip_brief", "packing_list", "essential_items", "suggested_looks", "tips"],
           },
         },
       },
@@ -479,6 +599,7 @@ Por favor, analise e crie:
                 suggested_looks: parsed.suggested_looks || [],
                 tips,
               },
+              packing_list: parsed.packing_list || { roupas: [], calcados: [], acessorios: [], chapeus: [] },
             };
           }
         }
@@ -517,6 +638,7 @@ Por favor, analise e crie:
       suggested_looks: suggestions.suggested_looks || [],
       tips,
     },
+    packing_list: suggestions.packing_list || { roupas: [], calcados: [], acessorios: [], chapeus: [] },
   };
 }
 
