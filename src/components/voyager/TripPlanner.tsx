@@ -71,8 +71,22 @@ export function TripPlanner({ wardrobeItems, onCreateTrip, userId }: TripPlanner
     
     if (result) {
       setWeatherData(result);
-      if (packedItems.length === 0 && result.recommendations.essential_items.length > 0) {
-        setPackedItems(result.recommendations.essential_items.slice(0, 5));
+      // Auto-select items from wardrobe that are in the packing list (only valid UUIDs)
+      if (packedItems.length === 0 && result.packing_list) {
+        const allPackingItems = [
+          ...result.packing_list.roupas,
+          ...result.packing_list.calcados,
+          ...result.packing_list.acessorios,
+          ...result.packing_list.chapeus,
+        ];
+        
+        // Only select items that are in wardrobe AND have a valid UUID
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const validIds = allPackingItems
+          .filter(item => item.in_wardrobe && item.id && uuidRegex.test(item.id))
+          .map(item => item.id as string);
+        
+        setPackedItems(validIds);
       }
     }
     

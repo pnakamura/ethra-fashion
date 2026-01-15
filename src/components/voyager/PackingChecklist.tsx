@@ -80,6 +80,8 @@ function PackingItemCard({
   onToggle: () => void;
   wardrobeImage?: string;
 }) {
+  const isSelectable = item.in_wardrobe && item.id;
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -87,8 +89,10 @@ function PackingItemCard({
       className={cn(
         "relative p-3 rounded-xl border transition-all",
         item.in_wardrobe 
-          ? "bg-emerald-500/5 border-emerald-500/30 hover:border-emerald-500/50" 
-          : "bg-amber-500/5 border-amber-500/30 hover:border-amber-500/50"
+          ? isSelected 
+            ? "bg-primary/10 border-primary/50 ring-2 ring-primary/30" 
+            : "bg-emerald-500/5 border-emerald-500/30 hover:border-emerald-500/50" 
+          : "bg-amber-500/5 border-amber-500/30 opacity-75"
       )}
     >
       <div className="flex gap-3">
@@ -96,10 +100,13 @@ function PackingItemCard({
         <div className="flex-shrink-0">
           {item.in_wardrobe && wardrobeImage ? (
             <button
-              onClick={onToggle}
+              onClick={isSelectable ? onToggle : undefined}
+              disabled={!isSelectable}
               className={cn(
                 "w-16 h-16 rounded-lg overflow-hidden relative transition-all",
-                isSelected && "ring-2 ring-primary ring-offset-2"
+                isSelected && "ring-2 ring-primary ring-offset-2",
+                isSelectable && "cursor-pointer hover:opacity-90",
+                !isSelectable && "cursor-not-allowed"
               )}
             >
               <img 
@@ -108,13 +115,15 @@ function PackingItemCard({
                 className="w-full h-full object-cover"
               />
               {isSelected && (
-                <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                  <Check className="w-5 h-5 text-primary" />
+                <div className="absolute inset-0 bg-primary/30 flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                    <Check className="w-4 h-4 text-primary-foreground" />
+                  </div>
                 </div>
               )}
             </button>
           ) : (
-            <div className="w-16 h-16 rounded-lg bg-muted/50 flex items-center justify-center border border-dashed border-muted-foreground/30">
+            <div className="w-16 h-16 rounded-lg bg-muted/50 flex items-center justify-center border border-dashed border-amber-500/50">
               <ShoppingBag className="w-6 h-6 text-amber-500" />
             </div>
           )}
@@ -172,10 +181,17 @@ function PackingItemCard({
       {/* Status badge */}
       <div className="absolute top-2 right-2">
         {item.in_wardrobe ? (
-          <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30 text-[10px] px-1.5 py-0">
-            <Check className="w-2.5 h-2.5 mr-0.5" />
-            No closet
-          </Badge>
+          isSelected ? (
+            <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] px-1.5 py-0">
+              <Check className="w-2.5 h-2.5 mr-0.5" />
+              Na mala
+            </Badge>
+          ) : (
+            <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30 text-[10px] px-1.5 py-0">
+              <Check className="w-2.5 h-2.5 mr-0.5" />
+              No closet
+            </Badge>
+          )
         ) : (
           <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-[10px] px-1.5 py-0">
             <ShoppingBag className="w-2.5 h-2.5 mr-0.5" />
@@ -218,24 +234,67 @@ export function PackingChecklist({
     suggestions: allItems.filter(i => !i.in_wardrobe).length,
   };
 
+  // Count selected items
+  const selectedCount = selectedItems.length;
+  
+  // Select all in-wardrobe items
+  const handleSelectAll = () => {
+    allItems
+      .filter(item => item.in_wardrobe && item.id)
+      .forEach(item => {
+        if (!selectedItems.includes(item.id!)) {
+          onToggleItem(item.id!);
+        }
+      });
+  };
+
+  // Deselect all items
+  const handleDeselectAll = () => {
+    selectedItems.forEach(id => onToggleItem(id));
+  };
+  
   return (
     <Card className="p-4 space-y-4 border-0 shadow-soft">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-primary" />
-          <h3 className="font-display font-semibold">Checklist Aura</h3>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <h3 className="font-display font-semibold">Checklist Aura</h3>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="flex items-center gap-1 text-emerald-600">
+              <Check className="w-3 h-3" />
+              {totalCounts.inWardrobe} no closet
+            </span>
+            <span className="text-muted-foreground">•</span>
+            <span className="flex items-center gap-1 text-amber-600">
+              <ShoppingBag className="w-3 h-3" />
+              {totalCounts.suggestions} sugestões
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="flex items-center gap-1 text-emerald-600">
-            <Check className="w-3 h-3" />
-            {totalCounts.inWardrobe} no closet
+        
+        {/* Selection controls */}
+        <div className="flex items-center justify-between bg-muted/30 rounded-lg p-2">
+          <span className="text-sm font-medium">
+            {selectedCount} peças na mala
           </span>
-          <span className="text-muted-foreground">•</span>
-          <span className="flex items-center gap-1 text-amber-600">
-            <ShoppingBag className="w-3 h-3" />
-            {totalCounts.suggestions} sugestões
-          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSelectAll}
+              className="text-xs text-primary hover:underline"
+            >
+              Selecionar todas
+            </button>
+            <span className="text-muted-foreground">|</span>
+            <button
+              onClick={handleDeselectAll}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Limpar
+            </button>
+          </div>
         </div>
       </div>
 

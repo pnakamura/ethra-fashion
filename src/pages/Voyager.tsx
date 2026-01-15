@@ -96,13 +96,18 @@ export default function Voyager() {
       packing_list?: PackingList;
     }) => {
       if (!user) throw new Error('Not authenticated');
+      
+      // Validate packed_items - only allow valid UUIDs
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const validPackedItems = trip.packed_items.filter(id => uuidRegex.test(id));
+      
       const { error } = await supabase.from('trips').insert({
         user_id: user.id,
         destination: trip.destination,
         start_date: trip.start_date,
         end_date: trip.end_date,
         trip_type: trip.trip_type,
-        packed_items: trip.packed_items,
+        packed_items: validPackedItems,
         packing_list: trip.packing_list as unknown as Json,
       });
       if (error) throw error;
