@@ -47,18 +47,33 @@ export function useLookRecommendations() {
     setError(null);
 
     try {
-      // Ensure session is fresh before calling edge function
+      // Ensure session is fresh before calling backend function
+      await supabase.auth.refreshSession();
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
+      if (sessionError || !session?.access_token) {
         throw new Error('Sessão expirada. Por favor, faça login novamente.');
       }
 
-      const { data, error: fnError } = await supabase.functions.invoke('suggest-looks', {
-        body: { occasion, count }
-      });
+      const invokeOnce = async () => {
+        const { data, error: fnError } = await supabase.functions.invoke('suggest-looks', {
+          body: { occasion, count }
+        });
+        if (fnError) throw new Error(fnError.message);
+        return data;
+      };
 
-      if (fnError) {
-        throw new Error(fnError.message);
+      let data;
+      try {
+        data = await invokeOnce();
+      } catch (e) {
+        // If token was stale, refresh once and retry
+        const msg = e instanceof Error ? e.message : '';
+        if (msg.toLowerCase().includes('unauthorized') || msg.includes('401')) {
+          await supabase.auth.refreshSession();
+          data = await invokeOnce();
+        } else {
+          throw e;
+        }
       }
 
       if (data.error) {
