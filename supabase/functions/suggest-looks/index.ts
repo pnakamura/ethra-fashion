@@ -11,8 +11,14 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log('suggest-looks request', {
+    method: req.method,
+    hasAuth: !!(req.headers.get('authorization') ?? req.headers.get('Authorization')),
+    origin: req.headers.get('origin'),
+  });
+
   try {
-    const authHeader = req.headers.get('Authorization');
+    const authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'Authorization required' }),
@@ -20,19 +26,42 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
+    const token = authHeader.startsWith('Bearer ')
+      ? authHeader.slice('Bearer '.length).trim()
+      : authHeader.trim();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    // Validate JWT
+    const authClient = createClient(supabaseUrl, supabaseServiceRoleKey ?? supabaseAnonKey);
+    const { data: userData, error: authError } = await authClient.auth.getUser(token);
+    const user = userData?.user ?? null;
+
     if (authError || !user) {
+      console.error('suggest-looks auth failed', {
+        authError: authError?.message,
+        hasToken: !!token,
+      });
+
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Use an authed client for DB operations so RLS applies to this user
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
 
     const { occasion, count = 3 } = await req.json();
 
