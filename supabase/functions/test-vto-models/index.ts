@@ -1209,6 +1209,7 @@ serve(async (req) => {
           processingTimeMs: r.processingTimeMs,
           cost: r.cost,
           error: r.error,
+          requestId: r.requestId,
         })),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
