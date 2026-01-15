@@ -164,14 +164,14 @@ function AddItemInline({
   return (
     <div className="flex gap-2 py-2">
       <Select value={selectedWardrobeItem} onValueChange={(v) => {
-        setSelectedWardrobeItem(v);
-        if (v) setName('');
+        setSelectedWardrobeItem(v === '__none__' ? '' : v);
+        if (v && v !== '__none__') setName('');
       }}>
         <SelectTrigger className="flex-1 rounded-xl text-sm h-9">
           <SelectValue placeholder="Do closet ou digite..." />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">Nenhum</SelectItem>
+          <SelectItem value="__none__">Digitar manualmente</SelectItem>
           {wardrobeItems.map(item => (
             <SelectItem key={item.id} value={item.id}>
               {item.name || item.category}
