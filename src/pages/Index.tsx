@@ -8,8 +8,8 @@ import { LookOfTheDay } from '@/components/dashboard/LookOfTheDay';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { MissionCard } from '@/components/dashboard/MissionCard';
 import { TemporarySeasonBanner } from '@/components/chromatic/TemporarySeasonBanner';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useProfile } from '@/hooks/useProfile';
+import { useWardrobeItems } from '@/hooks/useWardrobeItems';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -17,42 +17,19 @@ export default function Index() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ['profile', user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      const { data } = await supabase
-        .from('profiles')
-        .select('onboarding_complete')
-        .eq('user_id', user.id)
-        .single();
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  const { data: itemCount = 0 } = useQuery({
-    queryKey: ['wardrobe-count', user?.id],
-    queryFn: async () => {
-      if (!user) return 0;
-      const { count } = await supabase
-        .from('wardrobe_items')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-      return count || 0;
-    },
-    enabled: !!user,
-  });
+  // Use centralized hooks
+  const { profile, isLoading: profileLoading, hasCompletedOnboarding } = useProfile();
+  const { count: itemCount } = useWardrobeItems();
 
   useEffect(() => {
     if (!loading) {
       if (!user) {
         navigate('/welcome');
-      } else if (!profileLoading && profile && !profile.onboarding_complete) {
+      } else if (!profileLoading && profile && !hasCompletedOnboarding) {
         navigate('/onboarding');
       }
     }
-  }, [user, loading, profile, profileLoading, navigate]);
+  }, [user, loading, profile, profileLoading, hasCompletedOnboarding, navigate]);
 
   if (loading || profileLoading) {
     return (

@@ -14,10 +14,11 @@ import { TemporarySeasonBanner } from '@/components/chromatic/TemporarySeasonBan
 import { useLookRecommendations } from '@/hooks/useLookRecommendations';
 import { useTemporarySeason } from '@/contexts/TemporarySeasonContext';
 import { chromaticSeasons } from '@/data/chromatic-seasons';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { useProfile } from '@/hooks/useProfile';
+import { useWardrobeItems } from '@/hooks/useWardrobeItems';
+
 const occasions = [
   { value: 'all', label: 'Todos', icon: Sparkles },
   { value: 'casual', label: 'Casual', icon: Sun },
@@ -33,34 +34,9 @@ export default function Recommendations() {
   const { temporarySeason, isUsingTemporary, getEffectiveSeason } = useTemporarySeason();
   const { looks, isLoading, generateLooks, loadCachedLooks } = useLookRecommendations();
 
-  // Fetch profile data
-  const { data: profile } = useQuery({
-    queryKey: ['profile-recommendations', user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      const { data } = await supabase
-        .from('profiles')
-        .select('color_season, color_analysis')
-        .eq('user_id', user.id)
-        .single();
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  // Fetch wardrobe items for stats
-  const { data: wardrobeItems = [] } = useQuery({
-    queryKey: ['wardrobe-items-stats', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data } = await supabase
-        .from('wardrobe_items')
-        .select('id, chromatic_compatibility')
-        .eq('user_id', user.id);
-      return data || [];
-    },
-    enabled: !!user,
-  });
+  // Use centralized hooks
+  const { profile, colorSeason } = useProfile();
+  const { items: wardrobeItems } = useWardrobeItems();
 
   // Load cached looks on mount
   useEffect(() => {
@@ -68,8 +44,8 @@ export default function Recommendations() {
   }, [loadCachedLooks]);
 
   // Get effective color analysis (considering temporary season)
-  const userSeasonData = profile?.color_season 
-    ? chromaticSeasons.find(s => s.id === profile.color_season)
+  const userSeasonData = colorSeason 
+    ? chromaticSeasons.find(s => s.id === colorSeason)
     : null;
   
   const effectiveSeason = getEffectiveSeason(userSeasonData);
@@ -82,7 +58,7 @@ export default function Recommendations() {
         recommended_colors: effectiveSeason.colors.primary.map(c => c.name),
         avoid_colors: effectiveSeason.colors.avoid.map(c => c.name),
       }
-    : (profile?.color_analysis as {
+    : ((profile as { color_analysis?: { season?: string; subtype?: string; recommended_colors?: string[]; avoid_colors?: string[] } | null })?.color_analysis as {
         season?: string;
         subtype?: string;
         recommended_colors?: string[];

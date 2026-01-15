@@ -26,7 +26,16 @@ import Events from "./pages/Events";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes - data stays "fresh"
+      gcTime: 1000 * 60 * 30, // 30 minutes - keep in cache
+      refetchOnWindowFocus: false, // Avoid refetch on window focus
+      retry: 1, // Only 1 retry on failure
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

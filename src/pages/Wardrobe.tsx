@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { UsageIndicator } from '@/components/subscription/UsageIndicator';
 import { usePermission } from '@/hooks/usePermission';
 import { useAuth } from '@/hooks/useAuth';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { useWardrobeItems } from '@/hooks/useWardrobeItems';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,19 +32,8 @@ export default function Wardrobe() {
   const navigate = useNavigate();
   const wardrobePermission = usePermission('wardrobe_slots');
 
-  const { data: items = [] } = useQuery({
-    queryKey: ['wardrobe-items', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data } = await supabase
-        .from('wardrobe_items')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      return data || [];
-    },
-    enabled: !!user,
-  });
+  // Use centralized hook
+  const { items, invalidate } = useWardrobeItems();
 
   const filteredItems = items.filter(item => {
     if (compatibilityFilter === 'all') return true;
@@ -80,7 +70,7 @@ export default function Wardrobe() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wardrobe-items'] });
+      invalidate();
       queryClient.invalidateQueries({ queryKey: ['wardrobe-count'] });
       toast({ title: 'Peça adicionada!', description: 'Sua peça foi salva no closet.' });
     },
@@ -92,7 +82,7 @@ export default function Wardrobe() {
       if (!item) return;
       await supabase.from('wardrobe_items').update({ is_favorite: !item.is_favorite }).eq('id', id);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wardrobe-items'] }),
+    onSuccess: () => invalidate(),
   });
 
   const filterOptions = [

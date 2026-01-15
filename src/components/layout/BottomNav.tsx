@@ -1,6 +1,9 @@
 import { Home, Shirt, Palette, Layers, Calendar } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 const navItems = [
   { path: '/', icon: Home, label: 'Início' },
@@ -12,6 +15,45 @@ const navItems = [
 
 export function BottomNav() {
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // Prefetch data on hover for faster navigation
+  const handlePrefetch = (path: string) => {
+    if (!user) return;
+
+    switch (path) {
+      case '/wardrobe':
+        queryClient.prefetchQuery({
+          queryKey: ['wardrobe-items', user.id],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('wardrobe_items')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false });
+            return data || [];
+          },
+          staleTime: 1000 * 60 * 3,
+        });
+        break;
+      case '/chromatic':
+      case '/':
+        queryClient.prefetchQuery({
+          queryKey: ['profile', user.id],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', user.id)
+              .single();
+            return data;
+          },
+          staleTime: 1000 * 60 * 5,
+        });
+        break;
+    }
+  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
@@ -25,6 +67,8 @@ export function BottomNav() {
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={() => handlePrefetch(item.path)}
+                onTouchStart={() => handlePrefetch(item.path)}
                 className="relative flex flex-col items-center py-2 px-3 rounded-xl transition-all"
               >
                 {isActive && (
