@@ -220,6 +220,61 @@ async function getWeatherData(
   }
 }
 
+// Helper function to call AI with automatic retry on transient errors
+async function callAIWithRetry(
+  payload: object,
+  maxRetries = 2,
+  delayMs = 2000
+): Promise<{ ok: boolean; status: number; data: any }> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    throw new Error("LOVABLE_API_KEY not configured");
+  }
+
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      console.log(`AI Gateway retry attempt ${attempt} after error`);
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+
+    try {
+      const response = await fetch(LOVABLE_AI_GATEWAY, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      // Check for internal errors in response body (AI Gateway may return 200 with error)
+      if (data.error?.code === 500 || data.error?.message?.includes("Internal")) {
+        console.log(`AI Gateway internal error on attempt ${attempt}: ${data.error.message}`);
+        lastError = new Error(`AI Gateway internal error: ${data.error.message}`);
+        continue; // Retry
+      }
+
+      if (!response.ok && response.status >= 500 && attempt < maxRetries) {
+        console.log(`AI Gateway 5xx error on attempt ${attempt}: ${response.status}`);
+        lastError = new Error(`AI Gateway error: ${response.status}`);
+        continue; // Retry
+      }
+
+      return { ok: response.ok, status: response.status, data };
+    } catch (fetchError) {
+      console.error(`Fetch error on attempt ${attempt}:`, fetchError);
+      lastError = fetchError instanceof Error ? fetchError : new Error("Network error");
+      if (attempt < maxRetries) continue;
+    }
+  }
+
+  throw lastError || new Error("AI Gateway failed after retries");
+}
+
 async function analyzeWithAI(
   weather: { tempMin: number; tempMax: number; precipitationSum: number; conditions: string[] },
   wardrobeItems: WardrobeItem[],
@@ -228,12 +283,7 @@ async function analyzeWithAI(
   tripDays: number
 ): Promise<WeatherRecommendations> {
   console.log(`Analyzing with AI for ${wardrobeItems.length} wardrobe items`);
-  
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) {
-    throw new Error("LOVABLE_API_KEY not configured");
-  }
-  
+
   const itemsSummary = wardrobeItems.slice(0, 50).map((item) => ({
     id: item.id,
     name: item.name || item.category,
@@ -241,7 +291,7 @@ async function analyzeWithAI(
     season: item.season_tag,
     occasion: item.occasion,
   }));
-  
+
   const tripTypeLabel = getTripTypeLabel(tripType);
   const tempAvg = Math.round((weather.tempMin + weather.tempMax) / 2);
   const climateVibe = inferClimateVibe(weather.conditions, tempAvg);
@@ -302,96 +352,89 @@ Por favor, analise e crie:
    - avoid: 2 coisas para evitar levar/usar
    - pro_tips: 2 dicas de expert/truques`;
 
-  const response = await fetch(LOVABLE_AI_GATEWAY, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: "suggest_packing",
-            description: "Retorna sugestões de peças e looks para a viagem com tom editorial e divertido",
-            parameters: {
-              type: "object",
-              properties: {
-                weather_summary: {
-                  type: "string",
-                  description: "Resumo criativo e amigável do clima em português, com personalidade",
-                },
-                climate_vibe: {
-                  type: "string",
-                  description: "Vibe climática: tropical_beach, winter_wonderland, warm_vibes, mild_comfort, cozy_layers, rainy_adventure, versatile_weather",
-                },
-                packing_mood: {
-                  type: "string",
-                  description: "Frase inspiracional/mantra para guiar a montagem da mala",
-                },
-                trip_brief: {
-                  type: "string",
-                  description: "Parágrafo editorial sobre o destino, cultura e estilo esperado",
-                },
-                essential_items: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "Lista de IDs das peças essenciais do guarda-roupa",
-                },
-                suggested_looks: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      name: { type: "string", description: "Nome criativo do look (ex: Sunset em Ipanema)" },
-                      occasion: { type: "string", description: "Ocasião do look (passeio, jantar, praia, noite)" },
-                      items: { type: "array", items: { type: "string" }, description: "IDs das peças do look" },
-                      description: { type: "string", description: "Descrição editorial do look" },
-                      style_tip: { type: "string", description: "Dica de styling específica para este look" },
-                    },
-                    required: ["name", "occasion", "items", "description", "style_tip"],
-                  },
-                },
-                tips: {
+  const payload = {
+    model: "google/gemini-3-flash-preview",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "suggest_packing",
+          description: "Retorna sugestões de peças e looks para a viagem com tom editorial e divertido",
+          parameters: {
+            type: "object",
+            properties: {
+              weather_summary: {
+                type: "string",
+                description: "Resumo criativo e amigável do clima em português, com personalidade",
+              },
+              climate_vibe: {
+                type: "string",
+                description: "Vibe climática: tropical_beach, winter_wonderland, warm_vibes, mild_comfort, cozy_layers, rainy_adventure, versatile_weather",
+              },
+              packing_mood: {
+                type: "string",
+                description: "Frase inspiracional/mantra para guiar a montagem da mala",
+              },
+              trip_brief: {
+                type: "string",
+                description: "Parágrafo editorial sobre o destino, cultura e estilo esperado",
+              },
+              essential_items: {
+                type: "array",
+                items: { type: "string" },
+                description: "Lista de IDs das peças essenciais do guarda-roupa",
+              },
+              suggested_looks: {
+                type: "array",
+                items: {
                   type: "object",
                   properties: {
-                    essentials: { type: "array", items: { type: "string" }, description: "Dicas sobre itens essenciais" },
-                    local_culture: { type: "array", items: { type: "string" }, description: "Dicas sobre cultura e estilo local" },
-                    avoid: { type: "array", items: { type: "string" }, description: "O que evitar levar/usar" },
-                    pro_tips: { type: "array", items: { type: "string" }, description: "Dicas de expert" },
+                    name: { type: "string", description: "Nome criativo do look (ex: Sunset em Ipanema)" },
+                    occasion: { type: "string", description: "Ocasião do look (passeio, jantar, praia, noite)" },
+                    items: { type: "array", items: { type: "string" }, description: "IDs das peças do look" },
+                    description: { type: "string", description: "Descrição editorial do look" },
+                    style_tip: { type: "string", description: "Dica de styling específica para este look" },
                   },
-                  required: ["essentials", "local_culture", "avoid", "pro_tips"],
+                  required: ["name", "occasion", "items", "description", "style_tip"],
                 },
               },
-              required: ["weather_summary", "climate_vibe", "packing_mood", "trip_brief", "essential_items", "suggested_looks", "tips"],
+              tips: {
+                type: "object",
+                properties: {
+                  essentials: { type: "array", items: { type: "string" }, description: "Dicas sobre itens essenciais" },
+                  local_culture: { type: "array", items: { type: "string" }, description: "Dicas sobre cultura e estilo local" },
+                  avoid: { type: "array", items: { type: "string" }, description: "O que evitar levar/usar" },
+                  pro_tips: { type: "array", items: { type: "string" }, description: "Dicas de expert" },
+                },
+                required: ["essentials", "local_culture", "avoid", "pro_tips"],
+              },
             },
+            required: ["weather_summary", "climate_vibe", "packing_mood", "trip_brief", "essential_items", "suggested_looks", "tips"],
           },
         },
-      ],
-      tool_choice: { type: "function", function: { name: "suggest_packing" } },
-    }),
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("AI Gateway error:", response.status, errorText);
-    
-    if (response.status === 429) {
+      },
+    ],
+    tool_choice: { type: "function", function: { name: "suggest_packing" } },
+  };
+
+  // Use the retry wrapper
+  const { ok, status, data } = await callAIWithRetry(payload);
+
+  if (!ok) {
+    console.error("AI Gateway error after retries:", status);
+    if (status === 429) {
       throw new Error("Rate limit exceeded");
     }
-    if (response.status === 402) {
+    if (status === 402) {
       throw new Error("Payment required");
     }
-    throw new Error(`AI analysis failed: ${response.status}`);
+    throw new Error(`AI analysis failed: ${status}`);
   }
-  
-  const data = await response.json();
+
   console.log("AI response received");
   
   // Check if response contains an error (AI Gateway may return 200 with error body)

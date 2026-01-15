@@ -142,44 +142,82 @@ Retorne APENAS um objeto JSON válido (sem markdown, sem backticks):
   ]
 }`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2500,
-        temperature: 0.7,
-      }),
-    });
+    // Helper function to call AI with automatic retry on transient errors
+    const fetchAIWithRetry = async (maxRetries = 2, delayMs = 2000): Promise<any> => {
+      let lastError: Error | null = null;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Muitas requisições. Tente novamente em alguns segundos.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        if (attempt > 0) {
+          console.log(`AI Gateway retry attempt ${attempt}`);
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
+
+        try {
+          const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash',
+              messages: [{ role: 'user', content: prompt }],
+              max_tokens: 2500,
+              temperature: 0.7,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('AI gateway error:', response.status, errorText);
+
+            // Retry on 5xx errors
+            if (response.status >= 500 && attempt < maxRetries) {
+              lastError = new Error(`AI Gateway error: ${response.status}`);
+              continue;
+            }
+
+            if (response.status === 429) {
+              throw { status: 429, message: 'Muitas requisições. Tente novamente em alguns segundos.' };
+            }
+            if (response.status === 402) {
+              throw { status: 402, message: 'Créditos de IA esgotados.' };
+            }
+
+            throw { status: 500, message: 'Erro ao gerar looks' };
+          }
+
+          const data = await response.json();
+
+          // Check for internal errors in response body
+          if (data.error?.code === 500 || data.error?.message?.includes('Internal')) {
+            console.log(`AI Gateway internal error on attempt ${attempt}: ${data.error.message}`);
+            lastError = new Error(`AI Gateway internal error: ${data.error.message}`);
+            continue;
+          }
+
+          return data;
+        } catch (fetchError: any) {
+          if (fetchError.status) throw fetchError; // Re-throw structured errors
+          console.error(`Fetch error on attempt ${attempt}:`, fetchError);
+          lastError = fetchError instanceof Error ? fetchError : new Error('Network error');
+          if (attempt < maxRetries) continue;
+        }
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Créditos de IA esgotados.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
+
+      throw { status: 500, message: lastError?.message || 'AI Gateway failed after retries' };
+    };
+
+    let data;
+    try {
+      data = await fetchAIWithRetry();
+    } catch (apiError: any) {
       return new Response(
-        JSON.stringify({ error: 'Erro ao gerar looks' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: apiError.message || 'Erro ao gerar looks' }),
+        { status: apiError.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {

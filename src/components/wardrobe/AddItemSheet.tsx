@@ -7,7 +7,9 @@ import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -33,7 +35,13 @@ interface AddItemSheetProps {
   }) => void;
 }
 
-const categories = ['Top', 'Bottom', 'Vestido', 'Casaco', 'Sapato', 'Acessório'];
+// Categories grouped by type
+const categoryGroups = {
+  'Roupas': ['Top', 'Bottom', 'Vestido', 'Casaco', 'Macacão', 'Saia', 'Camisa', 'Blazer'],
+  'Calçados': ['Sapato', 'Tênis', 'Sandália', 'Bota', 'Chinelo', 'Salto'],
+  'Acessórios': ['Bolsa', 'Cinto', 'Chapéu', 'Óculos', 'Lenço/Echarpe', 'Mochila', 'Carteira'],
+  'Joias': ['Colar', 'Brinco', 'Pulseira', 'Anel', 'Relógio', 'Tornozeleira', 'Broche'],
+};
 const seasons = ['Primavera', 'Verão', 'Outono', 'Inverno', 'Todas'];
 const occasions = ['Casual', 'Trabalho', 'Festa', 'Esporte', 'Formal'];
 
@@ -265,10 +273,17 @@ export function AddItemSheet({ isOpen, onClose, onAdd }: AddItemSheetProps) {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat} value={cat.toLowerCase()}>
-                          {cat}
-                        </SelectItem>
+                      {Object.entries(categoryGroups).map(([groupName, items]) => (
+                        <SelectGroup key={groupName}>
+                          <SelectLabel className="text-xs text-muted-foreground px-2 pt-2 font-semibold">
+                            {groupName}
+                          </SelectLabel>
+                          {items.map((cat) => (
+                            <SelectItem key={cat} value={cat.toLowerCase()}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       ))}
                     </SelectContent>
                   </Select>
