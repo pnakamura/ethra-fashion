@@ -4,10 +4,10 @@ import { Sparkles, ChevronRight, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useLookRecommendations } from '@/hooks/useLookRecommendations';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { useProfile } from '@/hooks/useProfile';
+import { useWardrobeItems } from '@/hooks/useWardrobeItems';
 
 export function LookOfTheDay() {
   const { user } = useAuth();
@@ -15,35 +15,10 @@ export function LookOfTheDay() {
   const { looks, isLoading, generateLooks, loadCachedLooks } = useLookRecommendations();
   const [hasLoaded, setHasLoaded] = useState(false);
 
-  // Check if user has enough items and chromatic analysis
-  const { data: profile } = useQuery({
-    queryKey: ['profile-chromatic', user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      const { data } = await supabase
-        .from('profiles')
-        .select('color_season, color_analysis')
-        .eq('user_id', user.id)
-        .single();
-      return data;
-    },
-    enabled: !!user,
-  });
+  // Use centralized hooks for profile and wardrobe
+  const { profile, hasChromaticAnalysis } = useProfile();
+  const { count: itemCount } = useWardrobeItems();
 
-  const { data: itemCount = 0 } = useQuery({
-    queryKey: ['wardrobe-count', user?.id],
-    queryFn: async () => {
-      if (!user) return 0;
-      const { count } = await supabase
-        .from('wardrobe_items')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-      return count || 0;
-    },
-    enabled: !!user,
-  });
-
-  const hasChromaticAnalysis = !!profile?.color_analysis;
   const hasEnoughItems = itemCount >= 3;
   const canGenerateLooks = hasChromaticAnalysis && hasEnoughItems;
 

@@ -15,11 +15,11 @@ import { Button } from '@/components/ui/button';
 import { useColorAnalysis, type ColorAnalysisResult } from '@/hooks/useColorAnalysis';
 import { useAuth } from '@/hooks/useAuth';
 import { useTemporarySeason } from '@/contexts/TemporarySeasonContext';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useWardrobeItems } from '@/hooks/useWardrobeItems';
 import { Loader2, Palette, Sparkles, Compass, Camera, ArrowRight } from 'lucide-react';
 import { getSeasonById, chromaticSeasons } from '@/data/chromatic-seasons';
 import { calculateWardrobeStats } from '@/lib/chromatic-match';
+
 export default function Chromatic() {
   const { user } = useAuth();
   const { loadFromProfile, saveToProfile, result, reset } = useColorAnalysis();
@@ -29,21 +29,13 @@ export default function Chromatic() {
   const [activeTab, setActiveTab] = useState('palette');
   const [showSeasonDetail, setShowSeasonDetail] = useState(false);
 
-  // Load wardrobe items for stats
-  const { data: wardrobeItems = [] } = useQuery({
-    queryKey: ['wardrobe-chromatic-stats', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data } = await supabase
-        .from('wardrobe_items')
-        .select('id, chromatic_compatibility')
-        .eq('user_id', user.id);
-      return data || [];
-    },
-    enabled: !!user,
-  });
-
-  const wardrobeStats = calculateWardrobeStats(wardrobeItems);
+  // Use centralized hook - only fetch needed fields for stats
+  const { items: wardrobeItems } = useWardrobeItems();
+  
+  // Calculate stats from cached items
+  const wardrobeStats = calculateWardrobeStats(
+    wardrobeItems.map(item => ({ id: item.id, chromatic_compatibility: item.chromatic_compatibility }))
+  );
 
   useEffect(() => {
     async function loadProfile() {

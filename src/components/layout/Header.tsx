@@ -4,6 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { cn } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface HeaderProps {
   title?: string;
@@ -23,10 +25,63 @@ export function Header({ title }: HeaderProps) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
+  };
+
+  // Prefetch data on hover for faster navigation
+  const handlePrefetch = (path: string) => {
+    if (!user) return;
+
+    switch (path) {
+      case '/wardrobe':
+        queryClient.prefetchQuery({
+          queryKey: ['wardrobe-items', user.id],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('wardrobe_items')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false });
+            return data || [];
+          },
+          staleTime: 1000 * 60 * 3,
+        });
+        break;
+      case '/chromatic':
+      case '/':
+        queryClient.prefetchQuery({
+          queryKey: ['profile', user.id],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', user.id)
+              .single();
+            return data;
+          },
+          staleTime: 1000 * 60 * 5,
+        });
+        break;
+      case '/provador':
+        queryClient.prefetchQuery({
+          queryKey: ['try-on-results', user.id],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('try_on_results')
+              .select('id, result_image_url, status, created_at, garment_source, model_used')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false })
+              .limit(20);
+            return data || [];
+          },
+          staleTime: 1000 * 60 * 2,
+        });
+        break;
+    }
   };
 
   return (
@@ -48,6 +103,7 @@ export function Header({ title }: HeaderProps) {
                 <Link 
                   key={link.path}
                   to={link.path}
+                  onMouseEnter={() => handlePrefetch(link.path)}
                   className={cn(
                     "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all",
                     isActive 
