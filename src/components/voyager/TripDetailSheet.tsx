@@ -1,13 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MapPin, Calendar, Plane, Download, Plus, Trash2, 
-  Check, ShoppingBag, Shirt, Footprints, Watch, Crown,
-  Loader2, X, Edit3, Save
+  Check, ShoppingBag, Loader2, X, Save, AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import {
   Sheet,
@@ -22,9 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { PackingList, PackingItem } from './PackingChecklist';
@@ -45,19 +41,21 @@ interface TripDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   wardrobeItems: { id: string; image_url: string; category: string; name?: string }[];
   onUpdateTrip: (tripId: string, updates: Partial<Trip>) => void;
+  onDeleteTrip: (tripId: string) => void;
   onExportPDF: (trip: Trip) => void;
   onAddToCalendar: (trip: Trip) => void;
   isExporting?: boolean;
 }
 
-const categoryConfig = {
-  roupas: { icon: Shirt, label: 'Roupas', color: 'text-primary' },
-  calcados: { icon: Footprints, label: 'Calçados', color: 'text-amber-500' },
-  acessorios: { icon: Watch, label: 'Acessórios', color: 'text-emerald-500' },
-  chapeus: { icon: Crown, label: 'Chapéus', color: 'text-violet-500' },
+const categoryLabels: Record<string, string> = {
+  roupas: 'Roupas',
+  calcados: 'Calçados',
+  acessorios: 'Acessórios',
+  chapeus: 'Chapéus',
 };
 
-function EditablePackingItem({
+// Simple item row component
+function SimplePackingItem({
   item,
   onDelete,
   wardrobeImage,
@@ -68,88 +66,61 @@ function EditablePackingItem({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      className={cn(
-        "relative p-3 rounded-xl border transition-all group",
-        item.in_wardrobe 
-          ? "bg-emerald-500/5 border-emerald-500/30" 
-          : "bg-amber-500/5 border-amber-500/30"
-      )}
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20, height: 0 }}
+      className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0"
     >
-      <div className="flex items-center gap-3">
-        {/* Image/Icon */}
-        <div className="flex-shrink-0">
-          {item.in_wardrobe && wardrobeImage ? (
-            <div className="w-12 h-12 rounded-lg overflow-hidden">
-              <img 
-                src={wardrobeImage} 
-                alt={item.name} 
-                className="w-full h-full object-cover"
-              />
-            </div>
+      {/* Image or icon */}
+      {item.in_wardrobe && wardrobeImage ? (
+        <img 
+          src={wardrobeImage} 
+          alt={item.name} 
+          className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+        />
+      ) : (
+        <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+          <ShoppingBag className="w-4 h-4 text-amber-500" />
+        </div>
+      )}
+
+      {/* Name and category */}
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-sm truncate">{item.name}</p>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>{item.category}</span>
+          {item.quantity > 1 && <span>• x{item.quantity}</span>}
+          {item.in_wardrobe ? (
+            <span className="text-emerald-600">✓ Closet</span>
           ) : (
-            <div className="w-12 h-12 rounded-lg bg-muted/50 flex items-center justify-center border border-dashed border-muted-foreground/30">
-              <ShoppingBag className="w-5 h-5 text-amber-500" />
-            </div>
+            <span className="text-amber-600">Sugestão</span>
           )}
         </div>
-
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-sm leading-tight truncate">{item.name}</h4>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{item.category}</span>
-            {item.quantity > 1 && (
-              <Badge variant="secondary" className="text-[10px] px-1 py-0">
-                x{item.quantity}
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        {/* Delete button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-          onClick={onDelete}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
       </div>
 
-      {/* Status badge */}
-      <div className="absolute top-2 right-10">
-        {item.in_wardrobe ? (
-          <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30 text-[10px] px-1.5 py-0">
-            <Check className="w-2.5 h-2.5 mr-0.5" />
-            Closet
-          </Badge>
-        ) : (
-          <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-[10px] px-1.5 py-0">
-            <ShoppingBag className="w-2.5 h-2.5 mr-0.5" />
-            Sugestão
-          </Badge>
-        )}
-      </div>
+      {/* Delete */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+        onClick={onDelete}
+      >
+        <X className="w-4 h-4" />
+      </Button>
     </motion.div>
   );
 }
 
-function AddItemForm({
-  category,
+// Add item form - simplified
+function AddItemInline({
   onAdd,
   wardrobeItems,
 }: {
-  category: keyof PackingList;
   onAdd: (item: PackingItem) => void;
   wardrobeItems: { id: string; image_url: string; category: string; name?: string }[];
 }) {
-  const [isAdding, setIsAdding] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState('1');
   const [selectedWardrobeItem, setSelectedWardrobeItem] = useState<string>('');
 
   const handleAdd = () => {
@@ -159,9 +130,9 @@ function AddItemForm({
     
     const newItem: PackingItem = {
       id: selectedWardrobeItem || undefined,
-      name: wardrobeItem?.name || name || 'Item personalizado',
-      category: wardrobeItem?.category || categoryConfig[category].label,
-      quantity: parseInt(quantity) || 1,
+      name: wardrobeItem?.name || name || 'Item',
+      category: wardrobeItem?.category || 'Outros',
+      quantity: 1,
       colors: [],
       styles: [],
       fabrics: [],
@@ -172,76 +143,60 @@ function AddItemForm({
 
     onAdd(newItem);
     setName('');
-    setQuantity('1');
     setSelectedWardrobeItem('');
-    setIsAdding(false);
+    setIsOpen(false);
   };
 
-  if (!isAdding) {
+  if (!isOpen) {
     return (
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
-        className="w-full rounded-xl border-dashed"
-        onClick={() => setIsAdding(true)}
+        className="w-full justify-start text-muted-foreground hover:text-foreground"
+        onClick={() => setIsOpen(true)}
       >
         <Plus className="w-4 h-4 mr-2" />
-        Adicionar Item
+        Adicionar item
       </Button>
     );
   }
 
   return (
-    <Card className="p-3 space-y-3 border-primary/30">
-      <div className="space-y-2">
-        <Select value={selectedWardrobeItem} onValueChange={setSelectedWardrobeItem}>
-          <SelectTrigger className="rounded-xl text-sm">
-            <SelectValue placeholder="Selecionar do closet (opcional)" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">Nenhum (item novo)</SelectItem>
-            {wardrobeItems.map(item => (
-              <SelectItem key={item.id} value={item.id}>
-                <div className="flex items-center gap-2">
-                  <img src={item.image_url} alt="" className="w-6 h-6 rounded object-cover" />
-                  <span>{item.name || item.category}</span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="flex gap-2 py-2">
+      <Select value={selectedWardrobeItem} onValueChange={(v) => {
+        setSelectedWardrobeItem(v);
+        if (v) setName('');
+      }}>
+        <SelectTrigger className="flex-1 rounded-xl text-sm h-9">
+          <SelectValue placeholder="Do closet ou digite..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">Nenhum</SelectItem>
+          {wardrobeItems.map(item => (
+            <SelectItem key={item.id} value={item.id}>
+              {item.name || item.category}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-        {!selectedWardrobeItem && (
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Nome do item"
-            className="rounded-xl text-sm"
-          />
-        )}
+      {!selectedWardrobeItem && (
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nome do item"
+          className="flex-1 rounded-xl text-sm h-9"
+          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+        />
+      )}
 
-        <div className="flex gap-2">
-          <Select value={quantity} onValueChange={setQuantity}>
-            <SelectTrigger className="w-24 rounded-xl text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[1, 2, 3, 4, 5].map(n => (
-                <SelectItem key={n} value={n.toString()}>x{n}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button onClick={handleAdd} size="sm" className="flex-1 rounded-xl">
-            <Check className="w-4 h-4 mr-1" />
-            Adicionar
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => setIsAdding(false)}>
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-    </Card>
+      <Button size="sm" className="h-9 rounded-xl" onClick={handleAdd}>
+        <Check className="w-4 h-4" />
+      </Button>
+      <Button variant="ghost" size="sm" className="h-9" onClick={() => setIsOpen(false)}>
+        <X className="w-4 h-4" />
+      </Button>
+    </div>
   );
 }
 
@@ -251,29 +206,45 @@ export function TripDetailSheet({
   onOpenChange,
   wardrobeItems,
   onUpdateTrip,
+  onDeleteTrip,
   onExportPDF,
   onAddToCalendar,
   isExporting = false,
 }: TripDetailSheetProps) {
-  const [activeTab, setActiveTab] = useState<keyof PackingList>('roupas');
   const [localPackingList, setLocalPackingList] = useState<PackingList | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Initialize local state when trip changes
-  useState(() => {
+  // Initialize local state when trip changes - FIXED: using useEffect instead of useState
+  useEffect(() => {
     if (trip?.packing_list) {
       setLocalPackingList(trip.packing_list);
+    } else {
+      setLocalPackingList(null);
     }
-  });
+    setHasChanges(false);
+  }, [trip?.id, trip?.packing_list]);
 
   if (!trip) return null;
 
-  const packingList = localPackingList || trip.packing_list || {
-    roupas: [],
-    calcados: [],
-    acessorios: [],
-    chapeus: [],
-  };
+  // Flatten all items from packing_list
+  const packingList = localPackingList || trip.packing_list;
+  
+  const allItems: { item: PackingItem; category: string; index: number }[] = packingList
+    ? [
+        ...packingList.roupas.map((item, index) => ({ item, category: 'roupas', index })),
+        ...packingList.calcados.map((item, index) => ({ item, category: 'calcados', index })),
+        ...packingList.acessorios.map((item, index) => ({ item, category: 'acessorios', index })),
+        ...packingList.chapeus.map((item, index) => ({ item, category: 'chapeus', index })),
+      ]
+    : [];
+
+  // Group by category for display
+  const groupedItems = allItems.reduce((acc, { item, category, index }) => {
+    if (!acc[category]) acc[category] = [];
+    acc[category].push({ item, index });
+    return acc;
+  }, {} as Record<string, { item: PackingItem; index: number }[]>);
 
   const wardrobeMap = new Map(wardrobeItems.map(item => [item.id, item]));
 
@@ -281,19 +252,29 @@ export function TripDetailSheet({
     (new Date(trip.end_date).getTime() - new Date(trip.start_date).getTime()) / (1000 * 60 * 60 * 24)
   ) + 1;
 
-  const handleDeleteItem = (category: keyof PackingList, index: number) => {
+  const handleDeleteItem = (category: string, index: number) => {
+    if (!packingList) return;
+    
     const newList = {
       ...packingList,
-      [category]: packingList[category].filter((_, i) => i !== index),
+      [category]: packingList[category as keyof PackingList].filter((_, i) => i !== index),
     };
     setLocalPackingList(newList);
     setHasChanges(true);
   };
 
-  const handleAddItem = (category: keyof PackingList, item: PackingItem) => {
+  const handleAddItem = (item: PackingItem) => {
+    const currentList = localPackingList || {
+      roupas: [],
+      calcados: [],
+      acessorios: [],
+      chapeus: [],
+    };
+    
+    // Add to roupas by default (most common)
     const newList = {
-      ...packingList,
-      [category]: [...packingList[category], item],
+      ...currentList,
+      roupas: [...currentList.roupas, item],
     };
     setLocalPackingList(newList);
     setHasChanges(true);
@@ -306,10 +287,14 @@ export function TripDetailSheet({
     }
   };
 
-  const getCounts = (items: PackingItem[]) => ({
-    total: items.length,
-    inWardrobe: items.filter(i => i.in_wardrobe).length,
-  });
+  const handleDelete = () => {
+    onDeleteTrip(trip.id);
+    onOpenChange(false);
+    setShowDeleteConfirm(false);
+  };
+
+  const totalItems = allItems.length;
+  const inWardrobeCount = allItems.filter(({ item }) => item.in_wardrobe).length;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -332,7 +317,7 @@ export function TripDetailSheet({
           </div>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(90vh-180px)] py-4">
+        <ScrollArea className="h-[calc(90vh-200px)] py-4">
           <div className="space-y-4">
             {/* Action Buttons */}
             <div className="grid grid-cols-2 gap-2">
@@ -355,17 +340,25 @@ export function TripDetailSheet({
                 className="rounded-xl"
               >
                 <Calendar className="w-4 h-4 mr-2" />
-                Google Calendar
+                Calendário
               </Button>
             </div>
 
-            {/* Packing List Editor */}
-            <Card className="p-4 space-y-4 border-0 shadow-soft">
-              <div className="flex items-center justify-between">
-                <h3 className="font-display font-semibold flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-primary" />
-                  Editar Mala
-                </h3>
+            {/* Summary */}
+            {totalItems > 0 && (
+              <div className="flex items-center justify-center gap-3 text-sm py-2 bg-muted/30 rounded-xl">
+                <span className="text-emerald-600 font-medium">{inWardrobeCount} no closet</span>
+                <span className="text-muted-foreground">•</span>
+                <span className="text-amber-600 font-medium">{totalItems - inWardrobeCount} sugestões</span>
+                <span className="text-muted-foreground">•</span>
+                <span className="font-medium">{totalItems} total</span>
+              </div>
+            )}
+
+            {/* Simple Packing List */}
+            <Card className="p-4 border-0 shadow-soft">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-display font-semibold">Lista da Mala</h3>
                 {hasChanges && (
                   <Button size="sm" onClick={handleSaveChanges} className="rounded-xl">
                     <Save className="w-4 h-4 mr-1" />
@@ -374,63 +367,85 @@ export function TripDetailSheet({
                 )}
               </div>
 
-              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as keyof PackingList)}>
-                <TabsList className="w-full grid grid-cols-4 h-10">
-                  {(Object.keys(categoryConfig) as (keyof PackingList)[]).map((cat) => {
-                    const config = categoryConfig[cat];
-                    const counts = getCounts(packingList[cat]);
-                    const Icon = config.icon;
-                    
-                    return (
-                      <TabsTrigger 
-                        key={cat} 
-                        value={cat}
-                        className="flex items-center gap-1 text-xs data-[state=active]:bg-primary/10"
-                      >
-                        <Icon className={cn("w-3.5 h-3.5", config.color)} />
-                        <span className="hidden sm:inline">{config.label}</span>
-                        {counts.total > 0 && (
-                          <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 ml-0.5">
-                            {counts.total}
-                          </Badge>
-                        )}
-                      </TabsTrigger>
-                    );
-                  })}
-                </TabsList>
-
-                {(Object.keys(categoryConfig) as (keyof PackingList)[]).map((cat) => (
-                  <TabsContent key={cat} value={cat} className="mt-3 space-y-2">
-                    <AnimatePresence mode="popLayout">
-                      {packingList[cat].length === 0 ? (
-                        <div className="py-6 text-center text-muted-foreground text-sm">
-                          Nenhum item nesta categoria
-                        </div>
-                      ) : (
-                        packingList[cat].map((item, idx) => {
+              {totalItems === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  <p className="text-sm mb-2">Nenhum item na lista</p>
+                  <p className="text-xs">Adicione itens abaixo</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <AnimatePresence mode="popLayout">
+                    {Object.entries(groupedItems).map(([category, items]) => (
+                      <div key={category} className="space-y-1">
+                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">
+                          {categoryLabels[category] || category} ({items.length})
+                        </h4>
+                        {items.map(({ item, index }) => {
                           const wardrobeItem = item.id ? wardrobeMap.get(item.id) : undefined;
-                          
                           return (
-                            <EditablePackingItem
-                              key={item.id || `${cat}-${idx}`}
+                            <SimplePackingItem
+                              key={item.id || `${category}-${index}`}
                               item={item}
-                              onDelete={() => handleDeleteItem(cat, idx)}
+                              onDelete={() => handleDeleteItem(category, index)}
                               wardrobeImage={wardrobeItem?.image_url || item.image_url}
                             />
                           );
-                        })
-                      )}
-                    </AnimatePresence>
+                        })}
+                      </div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
 
-                    <AddItemForm
-                      category={cat}
-                      onAdd={(item) => handleAddItem(cat, item)}
-                      wardrobeItems={wardrobeItems}
-                    />
-                  </TabsContent>
-                ))}
-              </Tabs>
+              {/* Add Item */}
+              <div className="mt-4 pt-4 border-t border-border/50">
+                <AddItemInline
+                  onAdd={handleAddItem}
+                  wardrobeItems={wardrobeItems}
+                />
+              </div>
             </Card>
+
+            {/* Delete Trip */}
+            {showDeleteConfirm ? (
+              <Card className="p-4 border-destructive/30 bg-destructive/5">
+                <div className="flex items-center gap-3 mb-3">
+                  <AlertTriangle className="w-5 h-5 text-destructive" />
+                  <p className="font-medium text-destructive">Excluir esta viagem?</p>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Esta ação não pode ser desfeita.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 rounded-xl"
+                    onClick={() => setShowDeleteConfirm(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="flex-1 rounded-xl"
+                    onClick={handleDelete}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Excluir
+                  </Button>
+                </div>
+              </Card>
+            ) : (
+              <Button
+                variant="ghost"
+                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 rounded-xl"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir Viagem
+              </Button>
+            )}
           </div>
         </ScrollArea>
       </SheetContent>

@@ -151,6 +151,31 @@ export default function Voyager() {
     },
   });
 
+  // Delete trip mutation
+  const deleteTrip = useMutation({
+    mutationFn: async (tripId: string) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await supabase
+        .from('trips')
+        .delete()
+        .eq('id', tripId)
+        .eq('user_id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trips'] });
+      toast({ title: 'Viagem excluída!' });
+    },
+    onError: (error) => {
+      console.error('Error deleting trip:', error);
+      toast({ 
+        title: 'Erro ao excluir', 
+        description: 'Tente novamente.',
+        variant: 'destructive'
+      });
+    },
+  });
+
   const handleExportPDF = async (trip: Trip) => {
     setIsExporting(true);
     try {
@@ -190,6 +215,11 @@ export default function Voyager() {
     }
   };
 
+  const handleDeleteTrip = (tripId: string) => {
+    deleteTrip.mutate(tripId);
+    setSelectedTrip(null);
+  };
+
   return (
     <>
       <Header title="Voyager" />
@@ -217,6 +247,7 @@ export default function Voyager() {
         onOpenChange={(open) => !open && setSelectedTrip(null)}
         wardrobeItems={items}
         onUpdateTrip={handleUpdateTrip}
+        onDeleteTrip={handleDeleteTrip}
         onExportPDF={handleExportPDF}
         onAddToCalendar={handleAddToCalendar}
         isExporting={isExporting}
