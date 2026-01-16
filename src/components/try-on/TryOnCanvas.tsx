@@ -28,21 +28,32 @@ interface TryOnCanvasProps {
   maxRetries?: number;
 }
 
-// Get model display info
+// Get model display info with descriptive labels
 const getModelInfo = (modelUsed: string | null | undefined) => {
-  if (!modelUsed) return { icon: Sparkles, label: 'Auto', color: 'text-muted-foreground' };
+  if (!modelUsed) return { icon: Sparkles, label: 'Auto', color: 'text-muted-foreground', description: 'Modelo automático' };
   
+  // IDM-VTON - specialized virtual try-on model
+  if (modelUsed.includes('IDM-VTON')) {
+    return { icon: Sparkles, label: 'Especializado', color: 'text-rose-500', description: 'IDM-VTON (Replicate)' };
+  }
+  
+  // Vertex AI - high fidelity
+  if (modelUsed.includes('vertex')) {
+    return { icon: Crown, label: 'Alta Fidelidade', color: 'text-green-500', description: 'Vertex AI (Google Cloud)' };
+  }
+  
+  // Gemini models
+  if (modelUsed.includes('3-pro') || modelUsed.includes('premium')) {
+    return { icon: Zap, label: 'Rápido', color: 'text-amber-500', description: 'Gemini 3 Pro' };
+  }
   if (modelUsed.includes('flash')) {
-    return { icon: Zap, label: 'Flash', color: 'text-yellow-500' };
+    return { icon: Zap, label: 'Flash', color: 'text-yellow-500', description: 'Gemini Flash' };
   }
   if (modelUsed.includes('2.5-pro')) {
-    return { icon: Sparkles, label: 'Pro', color: 'text-blue-500' };
-  }
-  if (modelUsed.includes('3-pro') || modelUsed.includes('premium')) {
-    return { icon: Crown, label: 'Premium', color: 'text-purple-500' };
+    return { icon: Sparkles, label: 'Pro', color: 'text-blue-500', description: 'Gemini 2.5 Pro' };
   }
   
-  return { icon: Sparkles, label: 'IA', color: 'text-muted-foreground' };
+  return { icon: Sparkles, label: 'IA', color: 'text-muted-foreground', description: modelUsed };
 };
 
 export function TryOnCanvas({

@@ -20,7 +20,15 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
-    const { avatarImageUrl, garmentImageUrl, category, tryOnResultId, demoMode, retryCount = 0 } = body;
+    const { 
+      avatarImageUrl, 
+      garmentImageUrl, 
+      category, 
+      tryOnResultId, 
+      demoMode, 
+      retryCount = 0,
+      strategy = 'cascade' // 'cascade' | 'race' | 'onboarding'
+    } = body;
 
     // Demo mode: skip auth and DB persistence
     let userId = "demo-user";
@@ -47,6 +55,7 @@ serve(async (req) => {
       tryOnResultId,
       demoMode: !!demoMode,
       retryCount,
+      strategy,
       hasAvatar: !!avatarImageUrl,
       hasGarment: !!garmentImageUrl,
     });
@@ -526,77 +535,199 @@ CRITICAL REMINDER: Any body proportion distortion (widening, flattening, stretch
       return null;
     };
 
+    // ============================================
+    // Result validation helper
+    // ============================================
+    const validateResult = (imageUrl: string | null): boolean => {
+      if (!imageUrl || imageUrl.length < 20) return false;
+      if (imageUrl.startsWith('data:')) {
+        return imageUrl.includes('base64') && imageUrl.length > 100;
+      }
+      // URL format - basic validation
+      return imageUrl.startsWith('http');
+    };
+
     try {
       let output: string | null = null;
       let usedModel = 'unknown';
 
       // ============================================
-      // Model selection strategy (cascading fallback):
-      // 1. IDM-VTON (specialized Replicate model)
-      // 2. Vertex AI (Google Cloud - if configured)
-      // 3. Gemini Premium (fallback visual generation)
+      // STRATEGY 1: Cascading Fallback (original)
+      // Sequential: IDM-VTON → Vertex AI → Gemini
       // ============================================
-      
       const tryWithCascadingFallback = async () => {
         // Attempt 1: Try IDM-VTON (specialized model)
         if (retryCount === 0) {
           try {
-            console.log("Attempt 1: Trying IDM-VTON (specialized model)...");
+            console.log("[CASCADE] Attempt 1: Trying IDM-VTON...");
             const idmResult = await callIDMVTON();
-            if (idmResult) {
+            if (validateResult(idmResult)) {
               output = idmResult;
               usedModel = 'IDM-VTON';
-              console.log("IDM-VTON succeeded!");
+              console.log("[CASCADE] IDM-VTON succeeded!");
               return;
             }
-            console.log("IDM-VTON returned null, trying next model...");
+            console.log("[CASCADE] IDM-VTON returned invalid result, trying next...");
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
-            console.log(`IDM-VTON failed: ${errorMsg}, trying next model...`);
-            
-            // If rate limited, wait before fallback
-            if (errorMsg.includes("Rate limit")) {
-              await sleep(5000);
-            }
+            console.log(`[CASCADE] IDM-VTON failed: ${errorMsg}`);
+            if (errorMsg.includes("Rate limit")) await sleep(5000);
           }
         }
 
         // Attempt 2: Try Vertex AI (Google Cloud)
         if (retryCount <= 1) {
           try {
-            console.log("Attempt 2: Trying Vertex AI (Google Cloud)...");
+            console.log("[CASCADE] Attempt 2: Trying Vertex AI...");
             const vertexResult = await callVertexAI();
-            if (vertexResult) {
+            if (validateResult(vertexResult)) {
               output = vertexResult;
               usedModel = 'vertex-ai-imagen';
-              console.log("Vertex AI succeeded!");
+              console.log("[CASCADE] Vertex AI succeeded!");
               return;
             }
-            console.log("Vertex AI returned null, trying Gemini...");
+            console.log("[CASCADE] Vertex AI returned invalid result, trying Gemini...");
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
-            console.log(`Vertex AI failed: ${errorMsg}, trying Gemini...`);
+            console.log(`[CASCADE] Vertex AI failed: ${errorMsg}`);
           }
         }
 
         // Attempt 3: Gemini Premium (final fallback)
-        console.log("Attempt 3: Using Gemini 3 Pro Image Preview...");
+        console.log("[CASCADE] Attempt 3: Using Gemini 3 Pro...");
         try {
           const geminiResult = await callGeminiPremium();
-          if (geminiResult) {
+          if (validateResult(geminiResult)) {
             output = geminiResult;
             usedModel = 'gemini-3-pro-image-preview';
-            console.log("Gemini Premium succeeded!");
+            console.log("[CASCADE] Gemini Premium succeeded!");
             return;
           }
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);
-          console.error(`Gemini Premium failed: ${errorMsg}`);
+          console.error(`[CASCADE] Gemini Premium failed: ${errorMsg}`);
           throw error;
         }
       };
 
-      await tryWithCascadingFallback();
+      // ============================================
+      // STRATEGY 2: Race (Quality-First Parallel)
+      // Parallel: Vertex + Gemini race, then IDM-VTON backup
+      // ============================================
+      const tryWithRaceStrategy = async () => {
+        console.log("[RACE] Starting parallel race strategy...");
+        
+        // Group 1: Google models in parallel (faster, more reliable)
+        const googlePromises = [
+          callVertexAI().catch(e => { console.log("[RACE] Vertex failed:", e.message); return null; }),
+          callGeminiPremium().catch(e => { console.log("[RACE] Gemini failed:", e.message); return null; }),
+        ];
+        
+        const raceStartTime = Date.now();
+        const googleResults = await Promise.all(googlePromises);
+        const googleDuration = Date.now() - raceStartTime;
+        console.log(`[RACE] Google parallel completed in ${googleDuration}ms`);
+        
+        // Find first valid result from Google
+        const vertexResult = googleResults[0];
+        const geminiResult = googleResults[1];
+        
+        if (validateResult(vertexResult)) {
+          output = vertexResult;
+          usedModel = 'vertex-ai-imagen';
+          console.log("[RACE] Vertex AI won the race!");
+          return;
+        }
+        
+        if (validateResult(geminiResult)) {
+          output = geminiResult;
+          usedModel = 'gemini-3-pro-image-preview';
+          console.log("[RACE] Gemini won the race!");
+          return;
+        }
+        
+        // If both Google models failed, try IDM-VTON as backup
+        console.log("[RACE] Google models failed, trying IDM-VTON backup...");
+        try {
+          const idmResult = await callIDMVTON();
+          if (validateResult(idmResult)) {
+            output = idmResult;
+            usedModel = 'IDM-VTON';
+            console.log("[RACE] IDM-VTON backup succeeded!");
+            return;
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.log(`[RACE] IDM-VTON backup failed: ${errorMsg}`);
+        }
+        
+        throw new Error("Nenhum modelo conseguiu gerar a imagem no modo race.");
+      };
+
+      // ============================================
+      // STRATEGY 3: Onboarding (Fast, No Cost)
+      // Gemini-first with 35s timeout, Vertex fallback
+      // ============================================
+      const tryWithOnboardingStrategy = async () => {
+        const ONBOARDING_TIMEOUT = 35000; // 35 seconds
+        console.log("[ONBOARDING] Starting optimized onboarding strategy...");
+        
+        // Try Gemini first (no external cost, always available)
+        try {
+          console.log("[ONBOARDING] Trying Gemini with 35s timeout...");
+          const geminiPromise = callGeminiPremium();
+          const timeoutPromise = new Promise<null>((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), ONBOARDING_TIMEOUT)
+          );
+          
+          const geminiResult = await Promise.race([geminiPromise, timeoutPromise]);
+          
+          if (validateResult(geminiResult)) {
+            output = geminiResult;
+            usedModel = 'gemini-3-pro-image-preview';
+            console.log("[ONBOARDING] Gemini succeeded!");
+            return;
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.log(`[ONBOARDING] Gemini failed/timeout: ${errorMsg}`);
+        }
+        
+        // Fallback to Vertex AI if Gemini fails
+        console.log("[ONBOARDING] Trying Vertex AI fallback...");
+        try {
+          const vertexResult = await callVertexAI();
+          if (validateResult(vertexResult)) {
+            output = vertexResult;
+            usedModel = 'vertex-ai-imagen';
+            console.log("[ONBOARDING] Vertex AI fallback succeeded!");
+            return;
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.log(`[ONBOARDING] Vertex AI fallback failed: ${errorMsg}`);
+        }
+        
+        throw new Error("Não foi possível processar no tempo esperado para onboarding.");
+      };
+
+      // ============================================
+      // Execute strategy based on parameter
+      // ============================================
+      switch (strategy) {
+        case 'race':
+          await tryWithRaceStrategy();
+          break;
+        case 'onboarding':
+          await tryWithOnboardingStrategy();
+          break;
+        case 'cascade':
+        default:
+          await tryWithCascadingFallback();
+          break;
+      }
+      
+      console.log(`Strategy "${strategy}" completed with model: ${usedModel}`);
 
       const processingTime = Date.now() - startTime;
       console.log(`${usedModel} completed in`, processingTime, "ms");

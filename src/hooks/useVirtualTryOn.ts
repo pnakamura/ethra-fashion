@@ -249,12 +249,14 @@ export function useVirtualTryOn() {
       garmentId,
       category,
       retryCount = 0,
+      strategy = 'race', // 'cascade' | 'race' | 'onboarding'
     }: {
       garmentImageUrl: string;
       garmentSource: 'wardrobe' | 'external_photo' | 'screenshot';
       garmentId?: string;
       category?: string;
       retryCount?: number;
+      strategy?: 'cascade' | 'race' | 'onboarding';
     }) => {
       if (!user) throw new Error('Not authenticated');
       if (!primaryAvatar) throw new Error('No avatar configured');
@@ -306,6 +308,8 @@ export function useVirtualTryOn() {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       
+      console.log(`Starting virtual try-on with strategy: ${strategy}`);
+      
       const response = await supabase.functions.invoke('virtual-try-on', {
         body: {
           avatarImageUrl: processedAvatarUrl,
@@ -313,6 +317,7 @@ export function useVirtualTryOn() {
           category: category || 'upper_body',
           tryOnResultId: tryOnResult.id,
           retryCount,
+          strategy, // Pass strategy to edge function
         },
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       });
