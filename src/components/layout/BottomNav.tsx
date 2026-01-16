@@ -52,6 +52,20 @@ export function BottomNav() {
           staleTime: 1000 * 60 * 5,
         });
         break;
+      case '/provador':
+        queryClient.prefetchQuery({
+          queryKey: ['try-on-results', user.id],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('try_on_results')
+              .select('id, result_image_url, status, created_at, garment_source, model_used')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false })
+              .limit(20);
+            return data || [];
+          },
+          staleTime: 1000 * 60 * 2,
+        });
     }
   };
 
