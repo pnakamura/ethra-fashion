@@ -1,11 +1,29 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock } from 'lucide-react';
+import { Clock, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { useVirtualTryOn } from '@/hooks/useVirtualTryOn';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { TryOnDetailModal } from './TryOnDetailModal';
+
+// Helper to detect URL type and apply appropriate treatment
+const getThumbnailUrl = (url: string | null): string | null => {
+  if (!url) return null;
+  
+  // Base64 data - use directly without modification
+  if (url.startsWith('data:')) {
+    return url;
+  }
+  
+  // Supabase Storage - apply transforms
+  if (url.includes('supabase.co')) {
+    return `${url}?width=120&height=160&resize=cover&quality=60`;
+  }
+  
+  // External URLs (Replicate, Google, etc.) - use as-is
+  return url;
+};
 
 interface TryOnResult {
   id: string;
@@ -24,6 +42,7 @@ interface TryOnGalleryProps {
 export function TryOnGallery({ onSelectResult, onTryAgainWithGarment }: TryOnGalleryProps) {
   const { tryOnHistory, isLoadingHistory, deleteTryOnResult } = useVirtualTryOn();
   const [selectedDetail, setSelectedDetail] = useState<TryOnResult | null>(null);
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   const completedResults = tryOnHistory?.filter((r) => r.status === 'completed') || [];
 
@@ -79,13 +98,9 @@ export function TryOnGallery({ onSelectResult, onTryAgainWithGarment }: TryOnGal
         </div>
 
         <div className="grid grid-cols-3 gap-2">
-          {completedResults.map((result, index) => {
-            // Generate thumbnail URL with Supabase transform (smaller size for gallery)
-            const thumbnailUrl = result.result_image_url
-              ? result.result_image_url.includes('supabase.co')
-                ? `${result.result_image_url}?width=120&height=160&resize=cover&quality=60`
-                : result.result_image_url
-              : null;
+        {completedResults.map((result, index) => {
+            const thumbnailUrl = getThumbnailUrl(result.result_image_url);
+            const hasError = imageErrors.has(result.id);
             
             return (
               <motion.button
@@ -96,13 +111,19 @@ export function TryOnGallery({ onSelectResult, onTryAgainWithGarment }: TryOnGal
                 onClick={() => setSelectedDetail(result)}
                 className="relative aspect-[3/4] rounded-lg overflow-hidden group bg-secondary"
               >
-                {thumbnailUrl ? (
+                {hasError ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-destructive/10">
+                    <AlertTriangle className="w-6 h-6 text-destructive/50" />
+                    <span className="text-[9px] text-destructive/50 mt-1">Expirada</span>
+                  </div>
+                ) : thumbnailUrl ? (
                   <img
                     src={thumbnailUrl}
                     alt="Try-on result"
                     loading="lazy"
                     decoding="async"
                     fetchPriority="low"
+                    onError={() => setImageErrors(prev => new Set(prev).add(result.id))}
                     className="w-full h-full object-cover transition-transform group-hover:scale-105"
                   />
                 ) : (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, Share2, Trash2, RotateCcw, Clock, X } from 'lucide-react';
+import { Download, Share2, Trash2, RotateCcw, Clock, X, AlertTriangle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -75,7 +75,9 @@ export function TryOnDetailModal({
       };
       
       img.onerror = () => {
-        setCorrectedImage(result.result_image_url);
+        console.error('Failed to load image:', result.result_image_url?.substring(0, 100));
+        // Signal error state instead of trying to use broken URL
+        setCorrectedImage('error');
         setIsCorrectingImage(false);
       };
       
@@ -158,6 +160,14 @@ export function TryOnDetailModal({
             <div className="flex items-center justify-center py-20">
               <p className="text-sm text-muted-foreground animate-pulse">
                 Otimizando imagem...
+              </p>
+            </div>
+          ) : correctedImage === 'error' ? (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+              <AlertTriangle className="w-12 h-12 mb-3 text-destructive/50" />
+              <p className="text-sm font-medium">Imagem indisponível</p>
+              <p className="text-xs text-center px-4 mt-1">
+                O arquivo pode ter expirado ou estar corrompido
               </p>
             </div>
           ) : correctedImage ? (
