@@ -119,13 +119,13 @@ export async function blurFaceInImage(
 ): Promise<Blob> {
   const { blurRadius = 30 } = options;
 
-  return new Promise(async (resolve, reject) => {
-    // Detect face if not provided
-    let faceRegion = options.faceRegion;
-    if (!faceRegion) {
-      faceRegion = await detectFaceRegion(imageBlob);
-    }
+  // Detect face if not provided (moved outside Promise constructor)
+  let faceRegion = options.faceRegion;
+  if (!faceRegion) {
+    faceRegion = await detectFaceRegion(imageBlob);
+  }
 
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(imageBlob);
 
