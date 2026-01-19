@@ -19,15 +19,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const handleSessionError = async () => {
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch (e) {
+        // Ignore signOut errors during cleanup
+      }
+      setSession(null);
+      setUser(null);
+      setLoading(false);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      async (event, session) => {
+        // Handle token refresh failure
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          console.warn('Token refresh failed, clearing session');
+          await handleSessionError();
+          return;
+        }
+        
+        if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+        } else {
+          setSession(session);
+          setUser(session?.user ?? null);
+        }
         setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Check initial session with error handling
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (error) {
+        console.error('Session error:', error.message);
+        // Clear invalid session
+        await handleSessionError();
+        return;
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
