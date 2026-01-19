@@ -8,6 +8,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import type { SeasonData } from '@/data/chromatic-seasons';
 import { useTemporarySeason } from '@/contexts/TemporarySeasonContext';
+import { MakeupSwatchGrid } from '@/components/makeup/MakeupSwatchGrid';
+import { getMakeupForSeason } from '@/data/makeup-palettes';
 
 interface SeasonDetailModalProps {
   season: SeasonData | null;
@@ -309,53 +311,60 @@ export function SeasonDetailModal({
               </TabsContent>
 
               <TabsContent value="beauty" className="mt-4 space-y-4">
-                {/* Lips */}
-                <div>
-                  <h5 className="text-sm font-medium mb-2">💄 Lábios</h5>
-                  <div className="flex flex-wrap gap-2">
-                    {season.makeup.lips.map((color) => (
-                      <span key={color} className="px-3 py-1.5 rounded-full bg-rose-500/10 text-rose-700 text-xs">
-                        {color}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                {(() => {
+                  const makeup = getMakeupForSeason(season.id);
+                  if (!makeup) return (
+                    <p className="text-sm text-muted-foreground">Dados de maquiagem não disponíveis.</p>
+                  );
+                  return (
+                    <>
+                      {/* Lips */}
+                      <div>
+                        <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
+                          <Heart className="w-4 h-4 text-rose-500" />
+                          Lábios
+                        </h5>
+                        <MakeupSwatchGrid products={makeup.recommended.lips} columns={6} />
+                      </div>
 
-                {/* Eyes */}
-                <div>
-                  <h5 className="text-sm font-medium mb-2">👁️ Olhos</h5>
-                  <div className="flex flex-wrap gap-2">
-                    {season.makeup.eyes.map((color) => (
-                      <span key={color} className="px-3 py-1.5 rounded-full bg-purple-500/10 text-purple-700 text-xs">
-                        {color}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                      {/* Eyes */}
+                      <div>
+                        <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-purple-500" />
+                          Olhos
+                        </h5>
+                        <MakeupSwatchGrid products={makeup.recommended.eyeshadow} columns={6} />
+                      </div>
 
-                {/* Blush */}
-                <div>
-                  <h5 className="text-sm font-medium mb-2">🌸 Blush</h5>
-                  <div className="flex flex-wrap gap-2">
-                    {season.makeup.blush.map((color) => (
-                      <span key={color} className="px-3 py-1.5 rounded-full bg-pink-500/10 text-pink-700 text-xs">
-                        {color}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                      {/* Blush & Face */}
+                      <div>
+                        <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
+                          <Palette className="w-4 h-4 text-pink-500" />
+                          Face
+                        </h5>
+                        <MakeupSwatchGrid products={[...makeup.recommended.blush, ...makeup.recommended.highlighter]} columns={6} />
+                      </div>
 
-                {/* Nails */}
-                <div>
-                  <h5 className="text-sm font-medium mb-2">💅 Unhas</h5>
-                  <div className="flex flex-wrap gap-2">
-                    {season.makeup.nails.map((color) => (
-                      <span key={color} className="px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-700 text-xs">
-                        {color}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                      {/* Nails */}
+                      <div>
+                        <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
+                          <Gem className="w-4 h-4 text-amber-500" />
+                          Unhas
+                        </h5>
+                        <MakeupSwatchGrid products={makeup.recommended.nails} columns={5} />
+                      </div>
+
+                      {/* Avoid */}
+                      <div>
+                        <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
+                          <X className="w-4 h-4 text-destructive" />
+                          Evitar em lábios
+                        </h5>
+                        <MakeupSwatchGrid products={makeup.avoid.lips} isAvoid columns={4} />
+                      </div>
+                    </>
+                  );
+                })()}
               </TabsContent>
 
               <TabsContent value="celebs" className="mt-4">
