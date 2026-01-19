@@ -91,7 +91,7 @@ export function Header({ title }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-background/98 dark:bg-background/95 backdrop-blur-xl border-b border-border dark:border-b-[1.5px] dark:border-b-[hsl(42_85%_55%_/_0.3)] dark:shadow-[0_1px_25px_hsl(42_85%_55%_/_0.12)]">
+    <header className="sticky top-0 z-40 bg-background/98 dark:bg-background/70 backdrop-blur-xl border-b border-border dark:border-b-[1.5px] dark:border-b-[hsl(42_85%_55%_/_0.3)] dark:shadow-[0_1px_25px_hsl(42_85%_55%_/_0.12)]">
       <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto md:max-w-2xl lg:max-w-5xl xl:max-w-6xl">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-display font-semibold text-gradient">

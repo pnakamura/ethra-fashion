@@ -71,7 +71,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
-      <div className="bg-background/95 dark:bg-background/98 backdrop-blur-xl border-t border-border dark:border-t-[1.5px] dark:border-t-[hsl(42_85%_55%_/_0.3)] dark:shadow-[0_-1px_25px_hsl(42_85%_55%_/_0.12)]">
+      <div className="bg-background/95 dark:bg-background/70 backdrop-blur-xl border-t border-border dark:border-t-[1.5px] dark:border-t-[hsl(42_85%_55%_/_0.3)] dark:shadow-[0_-1px_25px_hsl(42_85%_55%_/_0.12)]">
         <div className="flex items-center justify-around py-2 px-4 max-w-lg mx-auto md:max-w-2xl">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
