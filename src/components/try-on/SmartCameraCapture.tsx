@@ -18,7 +18,8 @@ import {
   Loader2,
   Shield,
   Eye,
-  EyeOff
+  EyeOff,
+  Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -34,6 +35,7 @@ import {
 import { useSmartCamera, CameraAnalysis } from '@/hooks/useSmartCamera';
 import { blurFaceInImage, PRIVACY_INFO } from '@/lib/privacy-utils';
 import { cn } from '@/lib/utils';
+import { handleCameraError, showPermissionDeniedToast } from '@/lib/camera-permissions';
 
 interface SmartCameraCaptureProps {
   onCapture: (blob: Blob) => void;
@@ -51,6 +53,7 @@ export function SmartCameraCapture({
   const [isCapturing, setIsCapturing] = useState(false);
   const [blurFace, setBlurFace] = useState(false);
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   
   const {
     analysis,
@@ -59,6 +62,13 @@ export function SmartCameraCapture({
     stopAnalysis,
     QUALITY_THRESHOLD
   } = useSmartCamera();
+
+  // Handle camera access error
+  const handleCameraAccessError = useCallback((error: string | DOMException) => {
+    console.error('[SmartCamera] Access error:', error);
+    handleCameraError(error);
+    setCameraError(typeof error === 'string' ? error : error.message);
+  }, []);
 
   // Start analysis when webcam is ready
   const handleWebcamReady = useCallback(() => {
@@ -217,9 +227,38 @@ export function SmartCameraCapture({
             aspectRatio: 3 / 4
           }}
           onUserMedia={handleWebcamReady}
+          onUserMediaError={handleCameraAccessError}
           className="absolute inset-0 w-full h-full object-cover"
           mirrored={mode === 'avatar'}
         />
+
+        {/* Camera Error State */}
+        {cameraError && (
+          <div className="absolute inset-0 bg-background/95 flex flex-col items-center justify-center text-center p-6">
+            <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+            <h3 className="font-display text-lg font-medium mb-2">Câmera Indisponível</h3>
+            <p className="text-muted-foreground text-sm mb-4 max-w-xs">
+              Não foi possível acessar a câmera. Verifique as permissões do navegador.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.reload()}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Tentar novamente
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onCancel}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Silhouette Overlay */}
         {mode === 'avatar' && isReady && (

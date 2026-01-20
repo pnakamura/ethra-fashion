@@ -14,6 +14,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useGarmentColorAnalysis } from '@/hooks/useGarmentColorAnalysis';
+import { checkCameraPermission, showPermissionDeniedToast, isCameraAvailable } from '@/lib/camera-permissions';
+import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 
 interface DominantColor {
@@ -110,7 +112,24 @@ export function EditItemSheet({ isOpen, item, onClose, onSave }: EditItemSheetPr
     reader.readAsDataURL(file);
   };
 
-  const handleCameraClick = () => {
+  const handleCameraClick = async () => {
+    // Check camera availability first
+    const hasCamera = await isCameraAvailable();
+    if (!hasCamera) {
+      toast.error('Câmera não encontrada', {
+        description: 'Nenhuma câmera foi detectada no seu dispositivo.',
+        duration: 5000,
+      });
+      return;
+    }
+
+    // Check permission status
+    const permissionStatus = await checkCameraPermission();
+    if (permissionStatus === 'denied') {
+      showPermissionDeniedToast();
+      return;
+    }
+
     // Create a new input element for camera to avoid state issues
     const input = document.createElement('input');
     input.type = 'file';

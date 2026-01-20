@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useGarmentExtraction } from '@/hooks/useGarmentExtraction';
 import { useSmartCamera } from '@/hooks/useSmartCamera';
 import { toast } from 'sonner';
+import { checkCameraPermission, showPermissionDeniedToast, isCameraAvailable } from '@/lib/camera-permissions';
 
 interface GarmentCaptureProps {
   onGarmentSelected: (garment: {
@@ -157,7 +158,24 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
                 Aponte para uma roupa no cabide ou manequim
               </p>
               <Button
-                onClick={() => {
+                onClick={async () => {
+                  // Check camera availability first
+                  const hasCamera = await isCameraAvailable();
+                  if (!hasCamera) {
+                    toast.error('Câmera não encontrada', {
+                      description: 'Nenhuma câmera foi detectada no seu dispositivo.',
+                      duration: 5000,
+                    });
+                    return;
+                  }
+
+                  // Check permission status
+                  const permissionStatus = await checkCameraPermission();
+                  if (permissionStatus === 'denied') {
+                    showPermissionDeniedToast();
+                    return;
+                  }
+
                   // Create a new input element for camera to avoid state issues
                   const input = document.createElement('input');
                   input.type = 'file';

@@ -15,11 +15,13 @@ import {
   AlertCircle,
   Check,
   Loader2,
-  RotateCcw
+  RotateCcw,
+  Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { handleCameraError, showPermissionDeniedToast } from '@/lib/camera-permissions';
 
 interface CameraAnalysis {
   overallScore: number;
@@ -43,9 +45,17 @@ export function ChromaticCameraCapture({
   
   const [isReady, setIsReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<CameraAnalysis | null>(null);
 
   const QUALITY_THRESHOLD = 60;
+
+  // Handle camera access error
+  const handleCameraAccessError = useCallback((error: string | DOMException) => {
+    console.error('[ChromaticCamera] Access error:', error);
+    handleCameraError(error);
+    setCameraError(typeof error === 'string' ? error : error.message);
+  }, []);
 
   // Analyze lighting from video frame
   const analyzeFrame = useCallback(() => {
@@ -197,9 +207,40 @@ export function ChromaticCameraCapture({
             aspectRatio: 1
           }}
           onUserMedia={handleWebcamReady}
+          onUserMediaError={handleCameraAccessError}
           className="w-full h-full object-cover"
           mirrored
         />
+
+        {/* Camera Error State */}
+        {cameraError && (
+          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-center p-6">
+            <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+            <h3 className="text-white font-medium mb-2">Câmera Indisponível</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Não foi possível acessar a câmera. Verifique as permissões do navegador.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.reload()}
+                className="text-white border-white/30"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Tentar novamente
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onCancel}
+                className="text-white"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Face Guide Overlay */}
         {isReady && (
