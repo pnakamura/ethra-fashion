@@ -10,6 +10,30 @@ interface LookItem {
   chromatic_compatibility: string | null;
 }
 
+export interface CelebrityInspiration {
+  name: string;
+  reference: string;
+  why: string;
+}
+
+export interface InvestmentPiece {
+  category: string;
+  description: string;
+  why: string;
+}
+
+export interface ColorTheoryDeep {
+  principle: string;
+  explanation: string;
+  hex_palette: string[];
+}
+
+export interface OccasionDetails {
+  perfect_for: string;
+  avoid_for: string;
+  best_time: string;
+}
+
 export interface VIPLook {
   name: string;
   items: LookItem[];
@@ -22,6 +46,12 @@ export interface VIPLook {
   confidence_boost: string;
   accessory_suggestions: string[];
   vip_tier: 'gold' | 'silver' | 'bronze';
+  // New VIP Premium Fields
+  celebrity_inspiration?: CelebrityInspiration;
+  investment_piece?: InvestmentPiece;
+  color_theory_deep?: ColorTheoryDeep;
+  occasion_details?: OccasionDetails;
+  styling_secrets?: string[];
 }
 
 export function useVIPLooks() {
