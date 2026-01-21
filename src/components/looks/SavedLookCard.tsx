@@ -3,6 +3,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -86,9 +87,10 @@ export function SavedLookCard({
         {/* Thumbnail or grid of pieces */}
         <div className="relative aspect-square bg-secondary">
           {outfit.thumbnail_url ? (
-            <img
+            <OptimizedImage
               src={outfit.thumbnail_url}
               alt={outfit.name}
+              aspectRatio="square"
               className="w-full h-full object-cover"
             />
           ) : items.length > 0 ? (
@@ -102,7 +104,7 @@ export function SavedLookCard({
                     items.length === 3 && index === 0 && "col-span-2"
                   )}
                 >
-                  <img
+                  <OptimizedImage
                     src={item.image_url}
                     alt={item.name || item.category}
                     className="w-full h-full object-cover"

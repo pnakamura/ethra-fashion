@@ -4,6 +4,7 @@ import { Search, Shirt, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { useWardrobeItems } from '@/hooks/useWardrobeItems';
 
 interface WardrobeSelectorProps {
@@ -111,10 +112,12 @@ export function WardrobeSelector({ onSelect, selectedId }: WardrobeSelectorProps
               }`}
             >
               {item.image_url ? (
-                <img
+                <OptimizedImage
                   src={item.image_url}
                   alt={item.name}
+                  aspectRatio="square"
                   className="w-full h-full object-cover"
+                  fallbackIcon={<Shirt className="w-6 h-6 text-muted-foreground" />}
                 />
               ) : (
                 <div className="w-full h-full bg-secondary flex items-center justify-center">

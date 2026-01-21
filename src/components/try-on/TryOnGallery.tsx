@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { useVirtualTryOn } from '@/hooks/useVirtualTryOn';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -117,14 +118,12 @@ export function TryOnGallery({ onSelectResult, onTryAgainWithGarment }: TryOnGal
                     <span className="text-[9px] text-destructive/50 mt-1">Expirada</span>
                   </div>
                 ) : thumbnailUrl ? (
-                  <img
+                  <OptimizedImage
                     src={thumbnailUrl}
                     alt="Try-on result"
-                    loading="lazy"
-                    decoding="async"
-                    fetchPriority="low"
-                    onError={() => setImageErrors(prev => new Set(prev).add(result.id))}
+                    aspectRatio="portrait"
                     className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    fallbackIcon={<AlertTriangle className="w-6 h-6 text-destructive/50" />}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

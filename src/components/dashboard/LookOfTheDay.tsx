@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Sparkles, ChevronRight, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { useLookRecommendations } from '@/hooks/useLookRecommendations';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -113,7 +114,7 @@ export function LookOfTheDay() {
             <div className="absolute inset-0 grid grid-cols-2 gap-0.5">
               {todayLook.items.slice(0, 4).map((item) => (
                 <div key={item.id} className="overflow-hidden">
-                  <img
+                  <OptimizedImage
                     src={item.image_url}
                     alt={item.name || item.category}
                     className="w-full h-full object-cover"

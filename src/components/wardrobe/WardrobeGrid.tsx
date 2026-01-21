@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Heart, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { CompatibilityBadge } from './CompatibilityBadge';
 import {
   DropdownMenu,
@@ -66,12 +67,11 @@ export function WardrobeGrid({ items, onToggleFavorite, onEdit, onDelete }: Ward
           >
             <Card className="overflow-hidden border-0 shadow-soft group">
               <div className="relative aspect-square bg-muted">
-                <img
+                <OptimizedImage
                   src={item.image_url}
                   alt={item.name || item.category}
+                  aspectRatio="square"
                   className="w-full h-full object-cover"
-                  loading="lazy"
-                  decoding="async"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-charcoal/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 
