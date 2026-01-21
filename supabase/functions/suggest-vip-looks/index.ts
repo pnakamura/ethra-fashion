@@ -162,9 +162,8 @@ serve(async (req) => {
     }).join('\n');
 
     const colorAnalysis = profile?.color_analysis as any;
-    const seasonId = colorAnalysis?.season && colorAnalysis?.subtype 
-      ? `${colorAnalysis.season}-${colorAnalysis.subtype}`.toLowerCase()
-      : profile?.color_season || 'spring-warm';
+    // Use color_season directly (already in English format like 'spring-light')
+    const seasonId = profile?.color_season?.toLowerCase() || 'spring-warm';
     
     const celebrities = getCelebritiesForSeason(seasonId);
 
