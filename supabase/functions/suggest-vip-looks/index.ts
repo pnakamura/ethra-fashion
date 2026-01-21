@@ -6,6 +6,64 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Mapeamento de celebridades por estação cromática (BR + Internacional)
+const celebrityBySeasons: Record<string, { br: string[], intl: string[] }> = {
+  'spring-light': {
+    br: ['Angélica', 'Claudia Leitte', 'Eliana'],
+    intl: ['Taylor Swift', 'Blake Lively', 'Reese Witherspoon']
+  },
+  'spring-warm': {
+    br: ['Marina Ruy Barbosa', 'Mariana Ximenes', 'Letícia Spiller'],
+    intl: ['Jessica Chastain', 'Nicole Kidman', 'Amy Adams']
+  },
+  'spring-bright': {
+    br: ['Anitta', 'Taís Araújo', 'IZA', 'Ludmilla'],
+    intl: ['Zendaya', 'Rihanna', 'Lupita Nyong\'o']
+  },
+  'summer-light': {
+    br: ['Grazi Massafera', 'Flávia Alessandra', 'Carolina Dieckmann'],
+    intl: ['Elle Fanning', 'Cate Blanchett', 'Kate Middleton']
+  },
+  'summer-soft': {
+    br: ['Deborah Secco', 'Giovanna Ewbank', 'Fernanda Paes Leme'],
+    intl: ['Jennifer Aniston', 'Sarah Jessica Parker']
+  },
+  'summer-cool': {
+    br: ['Adriana Lima', 'Fernanda Montenegro', 'Alessandra Ambrosio'],
+    intl: ['Anne Hathaway', 'Keira Knightley']
+  },
+  'autumn-soft': {
+    br: ['Juliana Paes', 'Paolla Oliveira', 'Dira Paes'],
+    intl: ['Drew Barrymore', 'Julia Roberts']
+  },
+  'autumn-warm': {
+    br: ['Sabrina Sato', 'Camila Pitanga', 'Lucy Alves'],
+    intl: ['Julianne Moore', 'Emma Stone']
+  },
+  'autumn-deep': {
+    br: ['Juliana Alves', 'Cris Vianna', 'Preta Gil'],
+    intl: ['Jennifer Lopez', 'Eva Mendes', 'Sofia Vergara']
+  },
+  'winter-bright': {
+    br: ['Bruna Marquezine', 'Isis Valverde', 'Mel Maia'],
+    intl: ['Megan Fox', 'Kim Kardashian', 'Dita Von Teese']
+  },
+  'winter-cool': {
+    br: ['Malu Mader', 'Glória Pires', 'Christiane Torloni'],
+    intl: ['Angelina Jolie', 'Liv Tyler', 'Courteney Cox']
+  },
+  'winter-deep': {
+    br: ['Sheron Menezzes', 'Erika Januza', 'Liniker', 'Lázaro Ramos'],
+    intl: ['Beyoncé', 'Kerry Washington', 'Naomi Campbell']
+  }
+};
+
+// Obter celebridades para uma estação
+function getCelebritiesForSeason(season: string): { br: string[], intl: string[] } {
+  const normalizedSeason = season?.toLowerCase().replace(/\s+/g, '-') || '';
+  return celebrityBySeasons[normalizedSeason] || { br: ['Gisele Bündchen'], intl: ['Cindy Crawford'] };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -100,75 +158,137 @@ serve(async (req) => {
       const colors = item.dominant_colors 
         ? (item.dominant_colors as any[]).map(c => `${c.name} (${c.hex})`).join(', ')
         : item.color_code || 'cor não analisada';
-      return `- ID: ${item.id} | ${item.category} | Cores: ${colors} | Compat: ${item.chromatic_compatibility || 'unknown'}`;
+      return `- ID: ${item.id} | ${item.category} | Nome: ${item.name || 'Sem nome'} | Cores: ${colors} | Compat: ${item.chromatic_compatibility || 'unknown'}`;
     }).join('\n');
 
     const colorAnalysis = profile?.color_analysis as any;
+    const seasonId = colorAnalysis?.season && colorAnalysis?.subtype 
+      ? `${colorAnalysis.season}-${colorAnalysis.subtype}`.toLowerCase()
+      : profile?.color_season || 'spring-warm';
+    
+    const celebrities = getCelebritiesForSeason(seasonId);
+
     const chromaticContext = colorAnalysis ? `
-## PERFIL CROMÁTICO VIP
+## PERFIL CROMÁTICO VIP DA CLIENTE
 Estação: ${colorAnalysis.season} ${colorAnalysis.subtype || ''}
+Celebridades Brasileiras de Referência: ${celebrities.br.join(', ')}
+Celebridades Internacionais: ${celebrities.intl.join(', ')}
 Cores ideais: ${colorAnalysis.recommended_colors?.slice(0, 8).join(', ') || 'não definidas'}
 Cores a evitar: ${colorAnalysis.avoid_colors?.slice(0, 5).join(', ') || 'não definidas'}
 Tom de pele: ${colorAnalysis.skin_tone || 'não definido'}
 Subtom: ${colorAnalysis.undertone || 'não definido'}
-` : 'Análise cromática não disponível.';
+` : `
+## PERFIL CROMÁTICO VIP
+Análise completa não disponível.
+Celebridades Brasileiras de Referência: ${celebrities.br.join(', ')}
+Celebridades Internacionais: ${celebrities.intl.join(', ')}
+`;
 
-    // VIP-specific elite prompt
-    const prompt = `Você é **Aura Elite**, uma consultora de estilo de celebridades especializada em looks de alto impacto e tendências de passarela. Seu trabalho é criar looks que fariam a cliente se sentir uma verdadeira estrela.
+    // VIP Elite Premium Prompt with Brazilian Celebrities and Advanced Color Theory
+    const prompt = `Você é **Aura Elite**, consultora de imagem de celebridades da A-list e editora de moda premium da Vogue Brasil. Seu trabalho é criar looks de altíssimo impacto que fariam a cliente se sentir uma verdadeira estrela de red carpet.
 
 ${chromaticContext}
 
 ## GUARDA-ROUPA DISPONÍVEL
 ${wardrobeDescription}
 
-## MISSÃO VIP
-Crie exatamente ${count} looks EXCLUSIVOS e MEMORÁVEIS usando APENAS peças do guarda-roupa acima. Cada look deve ser único, ousado e fotografável.
+## MISSÃO VIP ELITE
+Crie exatamente ${count} looks de ALTO IMPACTO e EXCLUSIVOS usando APENAS peças do guarda-roupa acima. Cada look deve ser único, sofisticado e digno de uma celebridade.
 
 ## CRITÉRIOS VIP OBRIGATÓRIOS
-1. **Priorize harmonias cromáticas avançadas**:
-   - Tríade: 3 cores equidistantes no círculo cromático
-   - Complementar Dividida: uma cor + duas adjacentes à complementar
-   - Tetrádica: 4 cores formando um retângulo no círculo
-   
-2. **Inspiração de tendências**: Mencione uma tendência atual (ex: Quiet Luxury, Old Money, Coastal Grandmother, Dopamine Dressing, Y2K Revival)
 
-3. **Nomes glamorosos**: Use nomes criativos e sofisticados em português
+### 1. INSPIRAÇÃO DE CELEBRIDADE (PRIORIZAR BRASILEIRAS)
+Para cada look, cite uma celebridade com a mesma estação cromática e um momento icônico dela que inspire a combinação. Use as celebridades listadas no perfil.
 
-4. **Frase de confiança**: Uma afirmação empoderada personalizada para cada look
+### 2. TEORIA DAS CORES AVANÇADA
+Aplique conceitos profissionais:
+- **Regra 60-30-10**: 60% cor dominante, 30% secundária, 10% acento
+- **Temperatura**: Cores quentes vs frias e seu impacto
+- **Intensidade e Valor**: Profundidade e brilho das cores
+- **Efeito Psicológico**: Vermelho=poder, Azul=confiança, Verde=equilíbrio
+- Forneça a paleta HEX das cores principais do look
 
-5. **Sugestões de acessórios premium**: 2-3 acessórios que elevariam o look
+### 3. HARMONIAS CROMÁTICAS AVANÇADAS
+- Tríade: 3 cores equidistantes no círculo cromático
+- Complementar Dividida: uma cor + duas adjacentes à complementar
+- Tetrádica: 4 cores formando um retângulo
+- Análoga com Acento: cores vizinhas + 1 complementar
 
-6. **Classificação VIP**:
-   - GOLD: Score cromático 90-100, harmonia perfeita, peças ideais
-   - SILVER: Score 75-89, excelente combinação
-   - BRONZE: Score 60-74, muito bom
+### 4. PEÇA DE INVESTIMENTO
+Sugira UMA peça atemporal que a cliente deveria considerar adquirir para complementar seu guarda-roupa e elevar este look a outro patamar.
 
-## REGRAS
+### 5. DETALHES DE OCASIÃO
+- Onde este look brilha (jantar romântico, evento corporativo, festa, editorial)
+- Onde evitar usar
+- Melhor horário (dia/noite/golden hour)
+
+### 6. SEGREDOS DE STYLING PROFISSIONAL
+2 dicas exclusivas que estilistas de celebridades usam
+
+### 7. TENDÊNCIAS 2024/2025
+Referencie tendências atuais:
+- Quiet Luxury (Loro Piana, The Row)
+- Old Money Aesthetic
+- Mob Wife (maximalismo glamoroso)
+- Cherry Coded (tons de cereja)
+- Butter Yellow (amarelo manteiga suave)
+- Burgundy Renaissance
+- Chocolate Brown Revival
+- Coastal Grandmother
+
+### 8. CLASSIFICAÇÃO VIP
+- GOLD: Score 90-100, harmonia cromática perfeita, todas peças ideais
+- SILVER: Score 75-89, excelente combinação
+- BRONZE: Score 60-74, combinação muito boa
+
+## REGRAS INVIOLÁVEIS
 1. Use APENAS peças com compatibilidade "ideal" ou "neutral"
 2. NUNCA use peças com compatibilidade "avoid"
 3. Cada look: 2-4 peças que funcionem magnificamente juntas
-4. Score = média (ideal=100, neutral=50, avoid=0)
+4. Nomes glamorosos e memoráveis em português
+5. Frase de confiança empoderada e personalizada
 
-Retorne APENAS JSON válido (sem markdown):
+Retorne APENAS JSON válido (sem markdown, sem comentários):
 {
   "looks": [
     {
       "name": "Nome glamoroso e memorável",
       "items": ["uuid1", "uuid2"],
-      "occasion": "evento|gala|date|photoshoot",
+      "occasion": "evento|gala|date|photoshoot|work",
       "harmony_type": "tríade|complementar_dividida|tetrádica|análoga",
-      "color_harmony": "Explicação da harmonia usando teoria avançada das cores",
+      "color_harmony": "Explicação técnica da harmonia cromática aplicada",
       "chromatic_score": 95,
-      "styling_tip": "Dica de styling refinada",
+      "styling_tip": "Dica de styling refinada principal",
       "trend_inspiration": "Nome da tendência atual",
-      "confidence_boost": "Frase empoderada e motivacional",
-      "accessory_suggestions": ["acessório 1", "acessório 2"],
-      "vip_tier": "gold|silver|bronze"
+      "confidence_boost": "Frase empoderada e motivacional única",
+      "accessory_suggestions": ["acessório premium 1", "acessório premium 2"],
+      "vip_tier": "gold|silver|bronze",
+      "celebrity_inspiration": {
+        "name": "Nome da celebridade (priorizar brasileira)",
+        "reference": "Evento ou editorial específico",
+        "why": "Por que a combinação funciona para a estação cromática"
+      },
+      "investment_piece": {
+        "category": "categoria da peça",
+        "description": "Descrição da peça atemporal sugerida",
+        "why": "Por que vale o investimento"
+      },
+      "color_theory_deep": {
+        "principle": "Princípio aplicado (ex: Tríade Cromática)",
+        "explanation": "Explicação detalhada com proporções 60-30-10",
+        "hex_palette": ["#HEX1", "#HEX2", "#HEX3"]
+      },
+      "occasion_details": {
+        "perfect_for": "Onde o look brilha",
+        "avoid_for": "Onde evitar",
+        "best_time": "Melhor horário (dia/noite)"
+      },
+      "styling_secrets": ["Segredo de styling 1", "Segredo de styling 2"]
     }
   ]
 }`;
 
-    // Helper function with retry
+    // Helper function with retry - Using Premium Model for VIP
     const fetchAIWithRetry = async (maxRetries = 2, delayMs = 2000): Promise<any> => {
       let lastError: Error | null = null;
 
@@ -186,10 +306,11 @@ Retorne APENAS JSON válido (sem markdown):
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: 'google/gemini-2.5-flash',
+              // VIP uses Premium model for superior reasoning
+              model: 'google/gemini-2.5-pro',
               messages: [{ role: 'user', content: prompt }],
-              max_tokens: 3000,
-              temperature: 0.8, // Slightly higher for more creative VIP looks
+              max_tokens: 4000,
+              temperature: 0.75,
             }),
           });
 
