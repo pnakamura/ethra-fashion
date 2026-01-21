@@ -62,7 +62,7 @@ export function WardrobeGrid({ items, onToggleFavorite, onEdit, onDelete }: Ward
             key={item.id}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.05, duration: 0.3 }}
+            transition={{ delay: Math.min(index * 0.05, 0.6), duration: 0.3 }}
           >
             <Card className="overflow-hidden border-0 shadow-soft group">
               <div className="relative aspect-square bg-muted">

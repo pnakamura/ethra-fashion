@@ -1,3 +1,4 @@
+import React, { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,22 +11,28 @@ import { TemporarySeasonProvider } from "@/contexts/TemporarySeasonContext";
 import { AccessibilityProvider } from "@/contexts/AccessibilityContext";
 import { BackgroundSettingsProvider } from "@/contexts/BackgroundSettingsContext";
 import { ArtBackground } from "@/components/layout/ArtBackground";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { PageLoader } from "@/components/ui/PageLoader";
+
+// Critical routes - loaded immediately
 import Index from "./pages/Index";
-import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
-import Onboarding from "./pages/Onboarding";
-import Wardrobe from "./pages/Wardrobe";
-import Chromatic from "./pages/Chromatic";
-import Canvas from "./pages/Canvas";
-import Voyager from "./pages/Voyager";
-import VirtualTryOn from "./pages/VirtualTryOn";
-import Recommendations from "./pages/Recommendations";
-import Subscription from "./pages/Subscription";
-import Admin from "./pages/Admin";
-import Events from "./pages/Events";
-import Settings from "./pages/Settings";
-import Privacy from "./pages/Privacy";
-import NotFound from "./pages/NotFound";
+import Landing from "./pages/Landing";
+
+// Lazy-loaded routes - code split for performance
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const Wardrobe = lazy(() => import("./pages/Wardrobe"));
+const Chromatic = lazy(() => import("./pages/Chromatic"));
+const Canvas = lazy(() => import("./pages/Canvas"));
+const Voyager = lazy(() => import("./pages/Voyager"));
+const VirtualTryOn = lazy(() => import("./pages/VirtualTryOn"));
+const Recommendations = lazy(() => import("./pages/Recommendations"));
+const Subscription = lazy(() => import("./pages/Subscription"));
+const Admin = lazy(() => import("./pages/Admin"));
+const Events = lazy(() => import("./pages/Events"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,24 +73,31 @@ function AppRoutes() {
       <ArtBackground />
       <Toaster />
       <Sonner />
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/welcome" element={<Landing />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/wardrobe" element={<Wardrobe />} />
-        <Route path="/chromatic" element={<Chromatic />} />
-        <Route path="/canvas" element={<Canvas />} />
-        <Route path="/voyager" element={<Voyager />} />
-        <Route path="/provador" element={<VirtualTryOn />} />
-        <Route path="/recommendations" element={<Recommendations />} />
-        <Route path="/subscription" element={<Subscription />} />
-        <Route path="/admin" element={<Admin />} />
-        <Route path="/events" element={<Events />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            {/* Critical routes */}
+            <Route path="/" element={<Index />} />
+            <Route path="/welcome" element={<Landing />} />
+            <Route path="/auth" element={<Auth />} />
+            
+            {/* Lazy-loaded routes */}
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/wardrobe" element={<Wardrobe />} />
+            <Route path="/chromatic" element={<Chromatic />} />
+            <Route path="/canvas" element={<Canvas />} />
+            <Route path="/voyager" element={<Voyager />} />
+            <Route path="/provador" element={<VirtualTryOn />} />
+            <Route path="/recommendations" element={<Recommendations />} />
+            <Route path="/subscription" element={<Subscription />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/events" element={<Events />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

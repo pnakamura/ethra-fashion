@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Check, Sparkles, Users, Gem, Shirt, Palette, Heart, Scissors, Star, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState } from 'react';
@@ -74,6 +74,9 @@ export function SeasonDetailModal({
                 <DialogTitle className="font-display text-xl">
                   {season.name} {season.subtype}
                 </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Detalhes completos da paleta de cores {season.name} {season.subtype}
+                </DialogDescription>
                 <span className="text-2xl">{season.seasonIcon}</span>
               </div>
             </div>
