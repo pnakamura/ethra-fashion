@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, RefreshCw, Palette, Shirt, Camera, ChevronRight, Sun, Briefcase, PartyPopper, Gem } from 'lucide-react';
+import { Sparkles, RefreshCw, Palette, Shirt, Camera, ChevronRight, Sun, Briefcase, PartyPopper, Gem, Crown } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -10,9 +10,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LookCard } from '@/components/recommendations/LookCard';
 import { LookCardCompact } from '@/components/recommendations/LookCardCompact';
 import { HarmonyStats } from '@/components/recommendations/HarmonyStats';
+import { VIPLookCard } from '@/components/recommendations/VIPLookCard';
+import { VIPLockedOverlay } from '@/components/recommendations/VIPLockedOverlay';
 import { TemporarySeasonBanner } from '@/components/chromatic/TemporarySeasonBanner';
 import { useLookRecommendations } from '@/hooks/useLookRecommendations';
+import { useVIPLooks, VIPLook } from '@/hooks/useVIPLooks';
 import { useTemporarySeason } from '@/contexts/TemporarySeasonContext';
+import { usePermission } from '@/hooks/usePermission';
 import { chromaticSeasons } from '@/data/chromatic-seasons';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -33,6 +37,8 @@ export default function Recommendations() {
   const [selectedOccasion, setSelectedOccasion] = useState('all');
   const { temporarySeason, isUsingTemporary, getEffectiveSeason } = useTemporarySeason();
   const { looks, isLoading, generateLooks, loadCachedLooks } = useLookRecommendations();
+  const { vipLooks, isLoading: isLoadingVIP, generateVIPLooks, loadCachedVIPLooks } = useVIPLooks();
+  const { hasAccess: hasVIPAccess } = usePermission('vip_looks');
 
   // Use centralized hooks
   const { profile, colorSeason } = useProfile();
@@ -41,7 +47,10 @@ export default function Recommendations() {
   // Load cached looks on mount
   useEffect(() => {
     loadCachedLooks();
-  }, [loadCachedLooks]);
+    if (hasVIPAccess) {
+      loadCachedVIPLooks();
+    }
+  }, [loadCachedLooks, loadCachedVIPLooks, hasVIPAccess]);
 
   // Get effective color analysis (considering temporary season)
   const userSeasonData = colorSeason 
@@ -72,13 +81,21 @@ export default function Recommendations() {
     generateLooks(occasion, 6);
   };
 
+  const handleGenerateVIPLooks = () => {
+    generateVIPLooks(3);
+  };
+
   const handleOpenInCanvas = (look: { items: { id: string }[] }) => {
     sessionStorage.setItem('canvas_preload_items', JSON.stringify(look.items.map((i) => i.id)));
     navigate('/canvas');
   };
 
+  const handleVIPOpenInCanvas = (look: VIPLook) => {
+    sessionStorage.setItem('canvas_preload_items', JSON.stringify(look.items.map((i) => i.id)));
+    navigate('/canvas');
+  };
+
   const handleTryOnLook = (look: { items: { id: string; image_url?: string; imageUrl?: string; category?: string }[] }) => {
-    // Find the main garment (top, blouse, dress)
     const mainItem = look.items.find((i) =>
       ['top', 'camisa', 'blusa', 'vestido', 'upper_body', 'camiseta'].some((cat) =>
         i.category?.toLowerCase().includes(cat)
@@ -98,6 +115,10 @@ export default function Recommendations() {
       );
       navigate('/provador');
     }
+  };
+
+  const handleVIPTryOn = (look: VIPLook) => {
+    handleTryOnLook(look);
   };
 
   // Get season colors for visual palette
@@ -241,13 +262,20 @@ export default function Recommendations() {
           </div>
 
           <Tabs defaultValue="looks" className="w-full">
-            <TabsList className="w-full grid grid-cols-2 h-11 rounded-xl bg-muted p-1">
+            <TabsList className="w-full grid grid-cols-3 h-11 rounded-xl bg-muted p-1">
               <TabsTrigger
                 value="looks"
                 className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
                 Looks
+              </TabsTrigger>
+              <TabsTrigger
+                value="vip"
+                className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:to-yellow-500/10 data-[state=active]:shadow-sm text-sm"
+              >
+                <Crown className="w-4 h-4 mr-2 text-amber-500" />
+                VIP
               </TabsTrigger>
               <TabsTrigger
                 value="harmony"
@@ -339,6 +367,79 @@ export default function Recommendations() {
                   </Button>
                 </div>
               </Card>
+            </TabsContent>
+
+            {/* VIP Tab Content */}
+            <TabsContent value="vip" className="mt-5 space-y-5">
+              {hasVIPAccess ? (
+                <>
+                  {/* VIP Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Crown className="w-5 h-5 text-amber-500" />
+                      <h3 className="font-display font-semibold">Looks Exclusivos</h3>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateVIPLooks}
+                      disabled={isLoadingVIP}
+                      className="rounded-xl border-amber-500/30 hover:bg-amber-500/10"
+                    >
+                      {isLoadingVIP ? (
+                        <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 mr-1.5 text-amber-500" />
+                      )}
+                      {isLoadingVIP ? 'Criando...' : 'Gerar VIP'}
+                    </Button>
+                  </div>
+
+                  {/* VIP Looks Grid */}
+                  {vipLooks.length === 0 && !isLoadingVIP ? (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500/20 to-yellow-500/10 flex items-center justify-center mx-auto mb-4">
+                        <Crown className="w-8 h-8 text-amber-500" />
+                      </div>
+                      <h4 className="font-medium mb-2">Nenhum look VIP gerado</h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Gere looks exclusivos com tendências de passarela e harmonias avançadas
+                      </p>
+                      <Button
+                        onClick={handleGenerateVIPLooks}
+                        className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl"
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Gerar Looks VIP
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {isLoadingVIP && vipLooks.length === 0
+                        ? [...Array(3)].map((_, i) => (
+                            <motion.div
+                              key={i}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ delay: i * 0.1 }}
+                              className="aspect-[3/4] rounded-2xl bg-gradient-to-br from-amber-500/10 to-yellow-500/5 border-2 border-amber-500/20 animate-pulse"
+                            />
+                          ))
+                        : vipLooks.map((look, index) => (
+                            <VIPLookCard
+                              key={`vip-${look.name}-${index}`}
+                              look={look}
+                              index={index}
+                              onOpenInCanvas={handleVIPOpenInCanvas}
+                              onTryOn={handleVIPTryOn}
+                            />
+                          ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <VIPLockedOverlay previewCount={3} />
+              )}
             </TabsContent>
 
             <TabsContent value="harmony" className="mt-5 space-y-5">
