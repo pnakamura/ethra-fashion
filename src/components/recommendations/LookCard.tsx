@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CompatibilityBadge } from '@/components/wardrobe/CompatibilityBadge';
 import { LookHarmonyBadge } from './LookHarmonyBadge';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import type { RecommendedLook } from '@/hooks/useLookRecommendations';
 
 interface LookCardProps {
@@ -28,9 +29,9 @@ export function LookCard({ look, index, onOpenInCanvas }: LookCardProps) {
         {/* Items preview */}
         <div className="relative aspect-[4/3] bg-muted">
           <div className="absolute inset-0 grid grid-cols-2 gap-0.5 p-0.5">
-            {look.items.slice(0, 4).map((item, i) => (
+            {look.items.slice(0, 4).map((item) => (
               <div key={item.id} className="relative overflow-hidden">
-                <img
+                <OptimizedImage
                   src={item.image_url}
                   alt={item.name || item.category}
                   className="w-full h-full object-cover"

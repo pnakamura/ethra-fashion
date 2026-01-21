@@ -57,7 +57,7 @@ export function VIPLookCard({ look, index, onOpenInCanvas, onTryOn }: VIPLookCar
     >
       <Card
         className={cn(
-          'relative overflow-hidden border-2 transition-all duration-300 hover:scale-[1.02]',
+          'relative border-2 transition-all duration-300 hover:scale-[1.02]',
           tier.border,
           tier.glow
         )}
@@ -83,7 +83,7 @@ export function VIPLookCard({ look, index, onOpenInCanvas, onTryOn }: VIPLookCar
         </div>
 
         {/* Items Preview */}
-        <div className="relative h-48 flex items-center justify-center p-4 bg-gradient-to-b from-transparent to-background/50">
+        <div className="relative h-48 flex items-center justify-center p-4 bg-gradient-to-b from-transparent to-background/50 overflow-hidden rounded-t-lg">
           <div className="flex -space-x-6">
             {look.items.slice(0, 4).map((item, i) => (
               <motion.div
@@ -151,16 +151,16 @@ export function VIPLookCard({ look, index, onOpenInCanvas, onTryOn }: VIPLookCar
           )}
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-3">
             {onOpenInCanvas && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => onOpenInCanvas(look)}
-                className="flex-1 rounded-xl"
+                className="flex-1 rounded-xl min-w-0"
               >
-                <Eye className="w-3.5 h-3.5 mr-1.5" />
-                Canvas
+                <Eye className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+                <span className="truncate">Canvas</span>
               </Button>
             )}
             {onTryOn && (
@@ -170,12 +170,12 @@ export function VIPLookCard({ look, index, onOpenInCanvas, onTryOn }: VIPLookCar
                     size="sm"
                     onClick={() => onTryOn(look)}
                     className={cn(
-                      'flex-1 rounded-xl bg-gradient-to-r text-white',
+                      'flex-1 rounded-xl bg-gradient-to-r text-white min-w-0',
                       tier.gradient
                     )}
                   >
-                    <Crown className="w-3.5 h-3.5 mr-1.5" />
-                    Provar VIP
+                    <Crown className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+                    <span className="truncate">Provar</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Experimentar no Provador Virtual</TooltipContent>
