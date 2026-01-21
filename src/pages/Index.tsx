@@ -10,7 +10,8 @@ import { MissionCard } from '@/components/dashboard/MissionCard';
 import { AchievementsPanel } from '@/components/dashboard/AchievementsPanel';
 import { TemporarySeasonBanner } from '@/components/chromatic/TemporarySeasonBanner';
 import { useProfile } from '@/hooks/useProfile';
-import { Sparkles, ChevronRight } from 'lucide-react';
+import { Sparkles, ChevronRight, Crown, Camera } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import { getGreeting, getFirstName } from '@/lib/greeting';
 
@@ -60,11 +61,41 @@ export default function Index() {
           
           <QuickActions />
 
+          {/* Card promocional Looks Exclusivos VIP */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            onClick={() => navigate('/recommendations')}
+            className="cursor-pointer p-4 rounded-2xl border transition-all
+              bg-gradient-to-r from-amber-500/8 to-yellow-500/8 
+              border-amber-500/20 hover:border-amber-500/40
+              dark:from-amber-500/12 dark:to-yellow-500/10
+              dark:border-amber-500/25 dark:hover:border-amber-500/45
+              dark:shadow-[0_0_20px_hsl(45_100%_50%_/_0.08)] dark:hover:shadow-[0_0_25px_hsl(45_100%_50%_/_0.15)]"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 to-yellow-500/15 dark:from-amber-500/30 dark:to-yellow-500/20">
+                  <Crown className="w-5 h-5 text-amber-500 dark:text-amber-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-foreground">Looks Exclusivos</h3>
+                    <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-500/20 text-amber-600 dark:bg-amber-500/30 dark:text-amber-400 border-0">VIP</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Combinações personalizadas com IA</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-amber-500/70 dark:text-amber-400/70" />
+            </div>
+          </motion.div>
+
           {/* Card promocional do Provador Virtual */}
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.35 }}
             onClick={() => navigate('/provador')}
             className="cursor-pointer p-4 rounded-2xl border transition-all
               bg-gradient-to-r from-[hsl(238_45%_55%_/_0.08)] to-primary/8 
@@ -76,7 +107,7 @@ export default function Index() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-[hsl(238_45%_55%_/_0.15)] dark:bg-[hsl(238_45%_55%_/_0.25)]">
-                  <Sparkles className="w-5 h-5 text-[hsl(240_50%_75%)]" />
+                  <Camera className="w-5 h-5 text-[hsl(240_50%_75%)]" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground">Espelho Neural</h3>

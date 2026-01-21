@@ -1,4 +1,4 @@
-import { Home, Shirt, Palette, Sparkles, Layers } from 'lucide-react';
+import { Home, Shirt, Palette, Sparkles, Camera } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
@@ -8,9 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 const navItems = [
   { path: '/', icon: Home, label: 'Início' },
   { path: '/wardrobe', icon: Shirt, label: 'Closet' },
-  { path: '/provador', icon: Sparkles, label: 'Provador' },
+  { path: '/recommendations', icon: Sparkles, label: 'Looks' },
   { path: '/chromatic', icon: Palette, label: 'Cores' },
-  { path: '/canvas', icon: Layers, label: 'Looks' },
+  { path: '/provador', icon: Camera, label: 'Provador' },
 ];
 
 export function BottomNav() {
@@ -65,6 +65,21 @@ export function BottomNav() {
             return data || [];
           },
           staleTime: 1000 * 60 * 2,
+        });
+        break;
+      case '/recommendations':
+        queryClient.prefetchQuery({
+          queryKey: ['recommended-looks', user.id],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('recommended_looks')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false })
+              .limit(5);
+            return data || [];
+          },
+          staleTime: 1000 * 60 * 3,
         });
     }
   };

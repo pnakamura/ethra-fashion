@@ -1,4 +1,4 @@
-import { Settings, LogOut, Home, Shirt, Palette, Sparkles, Calendar, Layers } from 'lucide-react';
+import { Settings, LogOut, Home, Shirt, Palette, Sparkles, Calendar, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
@@ -18,9 +18,9 @@ interface HeaderProps {
 const navLinks = [
   { path: '/', label: 'Início', icon: Home },
   { path: '/wardrobe', label: 'Closet', icon: Shirt },
-  { path: '/provador', label: 'Provador', icon: Sparkles },
+  { path: '/recommendations', label: 'Looks', icon: Sparkles },
   { path: '/chromatic', label: 'Cores', icon: Palette },
-  { path: '/canvas', label: 'Looks', icon: Layers },
+  { path: '/provador', label: 'Provador', icon: Camera },
   { path: '/events', label: 'Agenda', icon: Calendar },
 ];
 

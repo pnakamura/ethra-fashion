@@ -45,11 +45,11 @@ export function LookCardCompact({
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.1 }}
-      className="flex-shrink-0 w-44 snap-start"
+      className="flex-shrink-0 w-48 snap-start"
     >
-      <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+      <Card className="hover:shadow-lg transition-shadow">
         {/* Visual stack of items */}
-        <div className="relative h-32 bg-gradient-to-br from-secondary to-secondary/50">
+        <div className="relative h-32 bg-gradient-to-br from-secondary to-secondary/50 overflow-hidden">
           {displayItems.map((item, i) => {
             const imageUrl = item.image_url || item.imageUrl;
             return (
@@ -99,23 +99,23 @@ export function LookCardCompact({
             </div>
           </div>
 
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             <Button
               size="sm"
               variant="outline"
-              className="flex-1 h-7 text-xs px-2"
+              className="flex-1 h-7 text-xs px-1.5 min-w-0"
               onClick={onOpenCanvas}
             >
-              <Sparkles className="w-3 h-3 mr-1" />
-              Canvas
+              <Sparkles className="w-3 h-3 flex-shrink-0" />
+              <span className="hidden xs:inline ml-1 truncate">Canvas</span>
             </Button>
             <Button
               size="sm"
-              className="flex-1 h-7 text-xs px-2 gradient-primary"
+              className="flex-1 h-7 text-xs px-1.5 min-w-0 gradient-primary"
               onClick={onTryOn}
             >
-              <Camera className="w-3 h-3 mr-1" />
-              Provar
+              <Camera className="w-3 h-3 flex-shrink-0" />
+              <span className="hidden xs:inline ml-1 truncate">Provar</span>
             </Button>
           </div>
         </div>
