@@ -1,17 +1,17 @@
 import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Image, Link as LinkIcon, Upload, X, Check, Loader2, Sparkles } from 'lucide-react';
+import { Camera, Image, Link as LinkIcon, Upload, X, Check, Loader2, Sparkles, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { useGarmentExtraction } from '@/hooks/useGarmentExtraction';
 import { useSmartCamera } from '@/hooks/useSmartCamera';
 import { toast } from 'sonner';
 import { openCaptureInputWithFallback } from '@/lib/camera-fallback';
 import { CameraFallbackModal } from '@/components/camera/CameraFallbackModal';
-
 interface GarmentCaptureProps {
   onGarmentSelected: (garment: {
     imageUrl: string;
@@ -317,12 +317,14 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
                       id: garment.id,
                     })
                   }
-                  className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 ring-2 ring-transparent hover:ring-primary/50 transition-all"
+                  className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 ring-2 ring-transparent hover:ring-primary/50 transition-all bg-secondary"
                 >
-                  <img
+                  <OptimizedImage
                     src={garment.processed_image_url || garment.original_image_url}
-                    alt="Garment"
+                    alt="Peça capturada"
+                    aspectRatio="square"
                     className="w-full h-full object-cover"
+                    fallbackIcon={<ImageOff className="w-4 h-4 text-muted-foreground/50" />}
                   />
                 </button>
               ))}
