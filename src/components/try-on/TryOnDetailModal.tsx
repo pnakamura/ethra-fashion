@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
@@ -144,6 +145,7 @@ export function TryOnDetailModal({
       <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
         <DialogHeader className="sr-only">
           <DialogTitle>Detalhes da Prova Virtual</DialogTitle>
+          <DialogDescription>Visualize, baixe ou compartilhe o resultado da sua prova virtual</DialogDescription>
         </DialogHeader>
 
         {/* Close button */}

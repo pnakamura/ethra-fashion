@@ -107,7 +107,7 @@ export function TryOnGallery({ onSelectResult, onTryAgainWithGarment }: TryOnGal
                 key={result.id}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: Math.min(index * 0.03, 0.3) }}
+                transition={{ delay: Math.min(index * 0.03, 0.36) }}
                 onClick={() => setSelectedDetail(result)}
                 className="relative aspect-[3/4] rounded-lg overflow-hidden group bg-secondary"
               >

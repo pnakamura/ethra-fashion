@@ -95,7 +95,7 @@ export function WardrobeSelector({ onSelect, selectedId }: WardrobeSelectorProps
               key={item.id}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.02 }}
+              transition={{ delay: Math.min(index * 0.02, 0.4) }}
               onClick={() =>
                 onSelect({
                   id: item.id,
