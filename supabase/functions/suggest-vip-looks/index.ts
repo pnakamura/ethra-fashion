@@ -6,63 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Mapeamento de celebridades por estação cromática (BR + Internacional)
-const celebrityBySeasons: Record<string, { br: string[], intl: string[] }> = {
-  'spring-light': {
-    br: ['Angélica', 'Claudia Leitte', 'Eliana'],
-    intl: ['Taylor Swift', 'Blake Lively', 'Reese Witherspoon']
-  },
-  'spring-warm': {
-    br: ['Marina Ruy Barbosa', 'Mariana Ximenes', 'Letícia Spiller'],
-    intl: ['Jessica Chastain', 'Nicole Kidman', 'Amy Adams']
-  },
-  'spring-bright': {
-    br: ['Anitta', 'Taís Araújo', 'IZA', 'Ludmilla'],
-    intl: ['Zendaya', 'Rihanna', 'Lupita Nyong\'o']
-  },
-  'summer-light': {
-    br: ['Grazi Massafera', 'Flávia Alessandra', 'Carolina Dieckmann'],
-    intl: ['Elle Fanning', 'Cate Blanchett', 'Kate Middleton']
-  },
-  'summer-soft': {
-    br: ['Deborah Secco', 'Giovanna Ewbank', 'Fernanda Paes Leme'],
-    intl: ['Jennifer Aniston', 'Sarah Jessica Parker']
-  },
-  'summer-cool': {
-    br: ['Adriana Lima', 'Fernanda Montenegro', 'Alessandra Ambrosio'],
-    intl: ['Anne Hathaway', 'Keira Knightley']
-  },
-  'autumn-soft': {
-    br: ['Juliana Paes', 'Paolla Oliveira', 'Dira Paes'],
-    intl: ['Drew Barrymore', 'Julia Roberts']
-  },
-  'autumn-warm': {
-    br: ['Sabrina Sato', 'Camila Pitanga', 'Lucy Alves'],
-    intl: ['Julianne Moore', 'Emma Stone']
-  },
-  'autumn-deep': {
-    br: ['Juliana Alves', 'Cris Vianna', 'Preta Gil'],
-    intl: ['Jennifer Lopez', 'Eva Mendes', 'Sofia Vergara']
-  },
-  'winter-bright': {
-    br: ['Bruna Marquezine', 'Isis Valverde', 'Mel Maia'],
-    intl: ['Megan Fox', 'Kim Kardashian', 'Dita Von Teese']
-  },
-  'winter-cool': {
-    br: ['Malu Mader', 'Glória Pires', 'Christiane Torloni'],
-    intl: ['Angelina Jolie', 'Liv Tyler', 'Courteney Cox']
-  },
-  'winter-deep': {
-    br: ['Sheron Menezzes', 'Erika Januza', 'Liniker', 'Lázaro Ramos'],
-    intl: ['Beyoncé', 'Kerry Washington', 'Naomi Campbell']
-  }
-};
-
-// Obter celebridades para uma estação
-function getCelebritiesForSeason(season: string): { br: string[], intl: string[] } {
-  const normalizedSeason = season?.toLowerCase().replace(/\s+/g, '-') || '';
-  return celebrityBySeasons[normalizedSeason] || { br: ['Gisele Bündchen'], intl: ['Cindy Crawford'] };
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -162,16 +105,10 @@ serve(async (req) => {
     }).join('\n');
 
     const colorAnalysis = profile?.color_analysis as any;
-    // Use color_season directly (already in English format like 'spring-light')
-    const seasonId = profile?.color_season?.toLowerCase() || 'spring-warm';
-    
-    const celebrities = getCelebritiesForSeason(seasonId);
 
     const chromaticContext = colorAnalysis ? `
 ## PERFIL CROMÁTICO VIP DA CLIENTE
 Estação: ${colorAnalysis.season} ${colorAnalysis.subtype || ''}
-Celebridades Brasileiras de Referência: ${celebrities.br.join(', ')}
-Celebridades Internacionais: ${celebrities.intl.join(', ')}
 Cores ideais: ${colorAnalysis.recommended_colors?.slice(0, 8).join(', ') || 'não definidas'}
 Cores a evitar: ${colorAnalysis.avoid_colors?.slice(0, 5).join(', ') || 'não definidas'}
 Tom de pele: ${colorAnalysis.skin_tone || 'não definido'}
@@ -179,12 +116,10 @@ Subtom: ${colorAnalysis.undertone || 'não definido'}
 ` : `
 ## PERFIL CROMÁTICO VIP
 Análise completa não disponível.
-Celebridades Brasileiras de Referência: ${celebrities.br.join(', ')}
-Celebridades Internacionais: ${celebrities.intl.join(', ')}
 `;
 
-    // VIP Elite Premium Prompt with Brazilian Celebrities and Advanced Color Theory
-    const prompt = `Você é **Aura Elite**, consultora de imagem de celebridades da A-list e editora de moda premium da Vogue Brasil. Seu trabalho é criar looks de altíssimo impacto que fariam a cliente se sentir uma verdadeira estrela de red carpet.
+    // VIP Elite Premium Prompt - Optimized for tokens (celebrities moved to static data)
+    const prompt = `Você é **Aura Elite**, consultora de imagem de celebridades e editora de moda premium. Crie looks VIP de alto impacto.
 
 ${chromaticContext}
 
@@ -192,97 +127,69 @@ ${chromaticContext}
 ${wardrobeDescription}
 
 ## MISSÃO VIP ELITE
-Crie exatamente ${count} looks de ALTO IMPACTO e EXCLUSIVOS usando APENAS peças do guarda-roupa acima. Cada look deve ser único, sofisticado e digno de uma celebridade.
+Crie exatamente ${count} looks de ALTO IMPACTO usando APENAS peças do guarda-roupa acima.
 
-## CRITÉRIOS VIP OBRIGATÓRIOS
+## CRITÉRIOS VIP
 
-### 1. INSPIRAÇÃO DE CELEBRIDADE (PRIORIZAR BRASILEIRAS)
-Para cada look, cite uma celebridade com a mesma estação cromática e um momento icônico dela que inspire a combinação. Use as celebridades listadas no perfil.
-
-### 2. TEORIA DAS CORES AVANÇADA
-Aplique conceitos profissionais:
+### TEORIA DAS CORES AVANÇADA
 - **Regra 60-30-10**: 60% cor dominante, 30% secundária, 10% acento
-- **Temperatura**: Cores quentes vs frias e seu impacto
-- **Intensidade e Valor**: Profundidade e brilho das cores
-- **Efeito Psicológico**: Vermelho=poder, Azul=confiança, Verde=equilíbrio
 - Forneça a paleta HEX das cores principais do look
 
-### 3. HARMONIAS CROMÁTICAS AVANÇADAS
-- Tríade: 3 cores equidistantes no círculo cromático
-- Complementar Dividida: uma cor + duas adjacentes à complementar
-- Tetrádica: 4 cores formando um retângulo
-- Análoga com Acento: cores vizinhas + 1 complementar
+### HARMONIAS CROMÁTICAS
+- Tríade, Complementar Dividida, Tetrádica ou Análoga com Acento
 
-### 4. PEÇA DE INVESTIMENTO
-Sugira UMA peça atemporal que a cliente deveria considerar adquirir para complementar seu guarda-roupa e elevar este look a outro patamar.
+### PEÇA DE INVESTIMENTO
+Sugira UMA peça atemporal para elevar o look.
 
-### 5. DETALHES DE OCASIÃO
-- Onde este look brilha (jantar romântico, evento corporativo, festa, editorial)
-- Onde evitar usar
-- Melhor horário (dia/noite/golden hour)
+### DETALHES DE OCASIÃO
+- Onde o look brilha / Onde evitar / Melhor horário
 
-### 6. SEGREDOS DE STYLING PROFISSIONAL
-2 dicas exclusivas que estilistas de celebridades usam
+### SEGREDOS DE STYLING
+2 dicas exclusivas de estilistas profissionais
 
-### 7. TENDÊNCIAS 2024/2025
-Referencie tendências atuais:
-- Quiet Luxury (Loro Piana, The Row)
-- Old Money Aesthetic
-- Mob Wife (maximalismo glamoroso)
-- Cherry Coded (tons de cereja)
-- Butter Yellow (amarelo manteiga suave)
-- Burgundy Renaissance
-- Chocolate Brown Revival
-- Coastal Grandmother
+### TENDÊNCIAS 2024/2025
+Quiet Luxury, Old Money, Cherry Coded, Butter Yellow, Burgundy Renaissance
 
-### 8. CLASSIFICAÇÃO VIP
-- GOLD: Score 90-100, harmonia cromática perfeita, todas peças ideais
-- SILVER: Score 75-89, excelente combinação
-- BRONZE: Score 60-74, combinação muito boa
+### CLASSIFICAÇÃO VIP
+- GOLD: Score 90-100 | SILVER: 75-89 | BRONZE: 60-74
 
-## REGRAS INVIOLÁVEIS
-1. Use APENAS peças com compatibilidade "ideal" ou "neutral"
-2. NUNCA use peças com compatibilidade "avoid"
-3. Cada look: 2-4 peças que funcionem magnificamente juntas
-4. Nomes glamorosos e memoráveis em português
-5. Frase de confiança empoderada e personalizada
+## REGRAS
+1. Use APENAS peças "ideal" ou "neutral"
+2. NUNCA use peças "avoid"
+3. Cada look: 2-4 peças
+4. Nomes glamorosos em português
 
-Retorne APENAS JSON válido (sem markdown, sem comentários):
+Retorne APENAS JSON válido:
 {
   "looks": [
     {
-      "name": "Nome glamoroso e memorável",
+      "name": "Nome glamoroso",
       "items": ["uuid1", "uuid2"],
       "occasion": "evento|gala|date|photoshoot|work",
       "harmony_type": "tríade|complementar_dividida|tetrádica|análoga",
-      "color_harmony": "Explicação técnica da harmonia cromática aplicada",
+      "color_harmony": "Explicação da harmonia aplicada",
       "chromatic_score": 95,
-      "styling_tip": "Dica de styling refinada principal",
-      "trend_inspiration": "Nome da tendência atual",
-      "confidence_boost": "Frase empoderada e motivacional única",
-      "accessory_suggestions": ["acessório premium 1", "acessório premium 2"],
+      "styling_tip": "Dica principal",
+      "trend_inspiration": "Tendência",
+      "confidence_boost": "Frase empoderada",
+      "accessory_suggestions": ["acessório 1", "acessório 2"],
       "vip_tier": "gold|silver|bronze",
-      "celebrity_inspiration": {
-        "name": "Nome da celebridade (priorizar brasileira)",
-        "reference": "Evento ou editorial específico",
-        "why": "Por que a combinação funciona para a estação cromática"
-      },
       "investment_piece": {
-        "category": "categoria da peça",
-        "description": "Descrição da peça atemporal sugerida",
-        "why": "Por que vale o investimento"
+        "category": "categoria",
+        "description": "Peça sugerida",
+        "why": "Por que investir"
       },
       "color_theory_deep": {
-        "principle": "Princípio aplicado (ex: Tríade Cromática)",
-        "explanation": "Explicação detalhada com proporções 60-30-10",
+        "principle": "Princípio aplicado",
+        "explanation": "Explicação 60-30-10",
         "hex_palette": ["#HEX1", "#HEX2", "#HEX3"]
       },
       "occasion_details": {
-        "perfect_for": "Onde o look brilha",
+        "perfect_for": "Onde brilha",
         "avoid_for": "Onde evitar",
-        "best_time": "Melhor horário (dia/noite)"
+        "best_time": "Melhor horário"
       },
-      "styling_secrets": ["Segredo de styling 1", "Segredo de styling 2"]
+      "styling_secrets": ["Segredo 1", "Segredo 2"]
     }
   ]
 }`;
